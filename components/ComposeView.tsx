@@ -1,17 +1,12 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Shield, Eye, Loader2, Copy, Share2, CheckCircle2, QrCode, ArrowLeft } from "lucide-react";
+import { Shield, Eye, Loader2, Copy, Share2, CheckCircle2, ArrowLeft, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Expiry } from "@/types";
-import { expiryLabel, expiryToSeconds, formatCountdown } from "@/lib/utils";
+import { expiryToSeconds, formatCountdown } from "@/lib/utils";
+import { useLang } from "@/lib/language";
 
 const MAX_CHARS = 5000;
-const EXPIRY_OPTIONS: { value: Expiry; label: string }[] = [
-  { value: "5min", label: "5 min" },
-  { value: "1hr", label: "1 hr" },
-  { value: "24hr", label: "24 hrs" },
-  { value: "never", label: "No expiry" },
-];
 
 interface ResultData {
   id: string;
@@ -37,6 +32,7 @@ function useCountdown(totalSeconds: number | null) {
 }
 
 function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew: () => void }) {
+  const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const expiryTotal = expiryToSeconds(result.expiry);
   const remaining = useCountdown(expiryTotal);
@@ -45,7 +41,7 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
   const handleCopy = async () => {
     await navigator.clipboard.writeText(result.url);
     setCopied(true);
-    toast.success("Link copied to clipboard");
+    toast.success(t("compose", "copyLink"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -57,15 +53,18 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
     }
   };
 
+  const handleWhatsApp = () => {
+    const text = encodeURIComponent(`🔐 I sent you a secret message on NoTrace. It will self-destruct after you read it:\n\n${result.url}`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  };
+
   return (
     <div className="animate-fade-up w-full space-y-5">
-      {/* Success badge */}
       <div className="flex items-center gap-2 text-brand">
         <CheckCircle2 className="w-4 h-4" />
-        <span className="text-sm font-semibold">Secret link created</span>
+        <span className="text-sm font-semibold">{t("compose", "successBadge")}</span>
       </div>
 
-      {/* Link card */}
       <div className="rounded-xl border border-surface-border bg-surface-card p-5 space-y-4">
         {result.title && (
           <p className="text-xs text-slate-500 uppercase tracking-widest">"{result.title}"</p>
@@ -80,26 +79,35 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150"
           >
             {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "Copied!" : "Copy Link"}
+            {copied ? t("compose", "copied") : t("compose", "copyLink")}
           </button>
+
+          {/* WhatsApp share button */}
+          <button
+            onClick={handleWhatsApp}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-800/40 bg-green-950/20 text-xs text-green-400 hover:border-green-600/60 hover:bg-green-950/40 transition-all duration-150"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            {t("compose", "whatsapp")}
+          </button>
+
           {canShare && (
             <button
               onClick={handleShare}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150"
             >
               <Share2 className="w-3.5 h-3.5" />
-              Share
+              {t("compose", "share")}
             </button>
           )}
         </div>
       </div>
 
-      {/* Expiry info */}
       <div className="flex items-center gap-3 text-xs text-slate-500">
         <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse-dot shrink-0" />
         {remaining !== null
-          ? <span>Expires in <span className="text-slate-300">{formatCountdown(remaining)}</span></span>
-          : <span>Never expires</span>
+          ? <span>{t("compose", "expiresIn")} <span className="text-slate-300">{formatCountdown(remaining)}</span></span>
+          : <span>{t("compose", "neverExpires")}</span>
         }
       </div>
 
@@ -108,31 +116,33 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
         className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors mt-2"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        Create another secret
+        {t("compose", "createAnother")}
       </button>
     </div>
   );
 }
 
 function PreviewPanel({ title, content, onBack }: { title: string; content: string; onBack: () => void }) {
+  const { t } = useLang();
   return (
     <div className="animate-fade-up w-full space-y-4">
       <button onClick={onBack} className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors">
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to editing
+        <ArrowLeft className="w-3.5 h-3.5" /> {t("compose", "backToEdit")}
       </button>
       <div className="rounded-xl border border-brand-border bg-brand-muted p-5 space-y-3">
         <div className="flex items-center gap-2 text-brand text-xs font-semibold uppercase tracking-widest">
-          <Eye className="w-3.5 h-3.5" /> Preview
+          <Eye className="w-3.5 h-3.5" /> {t("compose", "previewLabel")}
         </div>
         {title && <p className="text-sm font-semibold text-white">{title}</p>}
         <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{content}</p>
       </div>
-      <p className="text-xs text-slate-600">This is how the recipient will see your message.</p>
+      <p className="text-xs text-slate-600">{t("compose", "previewNote")}</p>
     </div>
   );
 }
 
 export default function ComposeView() {
+  const { t } = useLang();
   const [stage, setStage] = useState<"compose" | "preview" | "result">("compose");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -143,6 +153,13 @@ export default function ComposeView() {
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const expiryOptions: { value: Expiry; labelKey: string }[] = [
+    { value: "5min", labelKey: "expiry5min" },
+    { value: "1hr", labelKey: "expiry1hr" },
+    { value: "24hr", labelKey: "expiry24hr" },
+    { value: "never", labelKey: "expiryNever" },
+  ];
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (content.trim()) { e.preventDefault(); e.returnValue = ""; }
@@ -152,7 +169,7 @@ export default function ComposeView() {
   }, [content]);
 
   const handleCreate = useCallback(async () => {
-    if (!content.trim()) { toast.error("Please enter a message"); return; }
+    if (!content.trim()) { toast.error(t("compose", "emptyError")); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/create", {
@@ -171,7 +188,7 @@ export default function ComposeView() {
     } finally {
       setLoading(false);
     }
-  }, [content, title, password, expiry]);
+  }, [content, title, password, expiry, t]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -196,17 +213,15 @@ export default function ComposeView() {
 
   return (
     <div className="animate-fade-up w-full space-y-4">
-      {/* Title */}
       <input
         type="text"
-        placeholder="Title (optional)"
+        placeholder={t("compose", "titlePlaceholder")}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={120}
         className="w-full px-4 py-3 rounded-xl bg-surface-input border border-surface-border text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-border focus:ring-1 focus:ring-brand/20 transition-all"
       />
 
-      {/* Textarea */}
       <div
         className={`relative rounded-xl transition-all duration-150 ${isDragging ? "ring-2 ring-brand/40" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -215,7 +230,7 @@ export default function ComposeView() {
       >
         <textarea
           ref={textareaRef}
-          placeholder="Type or paste your secret message here..."
+          placeholder={t("compose", "contentPlaceholder")}
           value={content}
           onChange={(e) => setContent(e.target.value.slice(0, MAX_CHARS))}
           rows={8}
@@ -228,11 +243,10 @@ export default function ComposeView() {
         </div>
       </div>
 
-      {/* Expiry */}
       <div className="space-y-2">
-        <p className="text-xs text-slate-600 uppercase tracking-widest">Link validity</p>
+        <p className="text-xs text-slate-600 uppercase tracking-widest">{t("compose", "validity")}</p>
         <div className="flex gap-2 flex-wrap">
-          {EXPIRY_OPTIONS.map((opt) => (
+          {expiryOptions.map((opt) => (
             <button
               key={opt.value}
               type="button"
@@ -243,29 +257,30 @@ export default function ComposeView() {
                   : "border-surface-border text-slate-500 hover:border-slate-600 hover:text-slate-300"
               }`}
             >
-              {opt.label}
+              {t("compose", opt.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Password */}
       <input
         type="password"
-        placeholder="Password (optional)"
+        placeholder={t("compose", "passwordPlaceholder")}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface-input border border-surface-border text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-border focus:ring-1 focus:ring-brand/20 transition-all"
       />
 
-      {/* Actions */}
       <div className="flex gap-3 pt-1">
         <button
           onClick={handleCreate}
           disabled={loading || !content.trim()}
           className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand text-surface font-bold text-sm hover:bg-brand-dim disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 glow-brand"
         >
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Securing...</> : <><Shield className="w-4 h-4" /> Create Secure Link</>}
+          {loading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("compose", "creating")}</>
+            : <><Shield className="w-4 h-4" /> {t("compose", "createButton")}</>
+          }
         </button>
         <button
           type="button"
@@ -273,12 +288,12 @@ export default function ComposeView() {
           disabled={!content.trim()}
           className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-surface-border text-xs text-slate-400 hover:border-slate-600 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
-          <Eye className="w-3.5 h-3.5" /> Preview
+          <Eye className="w-3.5 h-3.5" /> {t("compose", "preview")}
         </button>
       </div>
 
       <p className="text-xs text-slate-700 text-center">
-        Press <kbd className="px-1 py-0.5 rounded bg-surface-card border border-surface-border text-slate-500">Ctrl+Enter</kbd> to create quickly
+        {t("compose", "shortcut")}
       </p>
     </div>
   );

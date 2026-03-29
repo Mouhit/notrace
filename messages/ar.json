@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "مجهول · مؤقت" },
+  "home": { "title": "أرسل سرًا.", "subtitle": "يُحرق بعد القراءة. بلا حسابات. بلا سجلات." },
+  "compose": {
+    "titlePlaceholder": "العنوان (اختياري)", "contentPlaceholder": "اكتب أو الصق رسالتك السرية هنا...",
+    "validity": "صلاحية الرابط", "expiry5min": "5 دقائق", "expiry1hr": "ساعة", "expiry24hr": "24 ساعة", "expiryNever": "بلا انتهاء",
+    "passwordPlaceholder": "كلمة المرور (اختيارية)", "createButton": "إنشاء رابط آمن", "creating": "جارٍ التأمين...",
+    "preview": "معاينة", "shortcut": "اضغط Ctrl+Enter للإنشاء السريع",
+    "emptyError": "الرجاء إدخال رسالة", "successBadge": "تم إنشاء الرابط السري",
+    "copyLink": "نسخ الرابط", "copied": "تم النسخ!", "share": "مشاركة", "whatsapp": "واتساب",
+    "expiresIn": "ينتهي في", "neverExpires": "لا ينتهي أبدًا",
+    "createAnother": "إنشاء سر آخر", "backToEdit": "العودة للتحرير",
+    "previewLabel": "معاينة", "previewNote": "هكذا سيرى المستلم رسالتك."
+  },
+  "read": {
+    "verifying": "جارٍ التحقق من السر...", "invalidTitle": "رابط غير صالح أو معطوب",
+    "invalidSubtitle": "هذا السر غير موجود أو لم يُنشأ قط.",
+    "alreadyReadTitle": "تمت القراءة أو انتهت الصلاحية", "alreadyReadSubtitle": "يمكن قراءة الأسرار مرة واحدة فقط.",
+    "errorTitle": "حدث خطأ ما", "errorSubtitle": "تعذر تحميل السر. حاول مرة أخرى.",
+    "passwordProtected": "محمي بكلمة مرور", "enterPassword": "أدخل كلمة المرور للوصول.",
+    "passwordPlaceholder": "أدخل كلمة المرور", "wrongPassword": "كلمة مرور خاطئة.",
+    "unlock": "فتح", "selfDestruct": "ستدمر هذه الرسالة نفسها بعد العرض.",
+    "selfDestructNote": "بمجرد الكشف عنه، يُدمَّر السر نهائيًا.",
+    "reveal": "كشف السر", "retrieving": "جارٍ استرداد السر...",
+    "secretMessage": "رسالة سرية", "copySecret": "نسخ السر",
+    "destroyNote": "سيُدمَّر هذا السر نهائيًا بعد انتهاء المؤقت.",
+    "destroyedTitle": "تم تدمير السر نهائيًا.", "destroyedSubtitle": "لا يمكن استعادته أو الوصول إليه مجددًا.",
+    "createNew": "إنشاء سر جديد", "createNewLink": "إنشاء سر جديد", "secretCopied": "تم نسخ السر"
+  },
+  "admin": {
+    "title": "لوحة الإدارة", "subtitle": "عرض إحصائيات منصة NoTrace.",
+    "accessRequired": "مطلوب وصول المسؤول", "keyPlaceholder": "أدخل مفتاح المسؤول",
+    "invalidKey": "مفتاح مسؤول غير صالح.", "accessButton": "الوصول إلى اللوحة", "loading": "جارٍ التحميل...",
+    "stats": "إحصائيات المنصة", "totalCreated": "إجمالي المنشآت", "totalRead": "إجمالي المقروءة",
+    "activeSecrets": "الأسرار النشطة", "destroyed": "مُدمَّرة", "allTime": "كل الوقت",
+    "secretsRevealed": "الأسرار المكشوفة", "waitingToRead": "في انتظار القراءة",
+    "alreadyBurned": "تم حرقها بالفعل", "readRate": "معدل القراءة", "signOut": "تسجيل الخروج"
+  },
+  "footer": { "copy": "بلا سجلات · بلا تتبع · بلا حسابات", "admin": "الإدارة" }
+}

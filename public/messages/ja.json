@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "匿名 · 一時的" },
+  "home": { "title": "秘密を送る。", "subtitle": "読んだら燃える。アカウント不要。ログなし。" },
+  "compose": {
+    "titlePlaceholder": "タイトル（任意）", "contentPlaceholder": "ここに秘密のメッセージを入力またはペースト...",
+    "validity": "リンクの有効期限", "expiry5min": "5分", "expiry1hr": "1時間", "expiry24hr": "24時間", "expiryNever": "期限なし",
+    "passwordPlaceholder": "パスワード（任意）", "createButton": "安全なリンクを作成", "creating": "保護中...",
+    "preview": "プレビュー", "shortcut": "Ctrl+Enterですばやく作成",
+    "emptyError": "メッセージを入力してください", "successBadge": "秘密のリンクが作成されました",
+    "copyLink": "リンクをコピー", "copied": "コピー済み！", "share": "共有", "whatsapp": "WhatsApp",
+    "expiresIn": "有効期限", "neverExpires": "期限なし",
+    "createAnother": "別の秘密を作成", "backToEdit": "編集に戻る",
+    "previewLabel": "プレビュー", "previewNote": "受信者にはこのようにメッセージが表示されます。"
+  },
+  "read": {
+    "verifying": "秘密を確認中...", "invalidTitle": "無効または壊れたリンク",
+    "invalidSubtitle": "この秘密は存在しないか、作成されたことがありません。",
+    "alreadyReadTitle": "すでに閲覧済みまたは期限切れ", "alreadyReadSubtitle": "秘密は一度しか読めません。",
+    "errorTitle": "エラーが発生しました", "errorSubtitle": "秘密を読み込めませんでした。もう一度お試しください。",
+    "passwordProtected": "パスワード保護", "enterPassword": "パスワードを入力してロックを解除してください。",
+    "passwordPlaceholder": "パスワードを入力", "wrongPassword": "パスワードが違います。",
+    "unlock": "ロック解除", "selfDestruct": "このメッセージは閲覧後に自動消滅します。",
+    "selfDestructNote": "一度公開されると、秘密は永久に削除されます。",
+    "reveal": "秘密を公開", "retrieving": "秘密を取得中...",
+    "secretMessage": "秘密のメッセージ", "copySecret": "秘密をコピー",
+    "destroyNote": "タイマー終了後、この秘密は永久に削除されます。",
+    "destroyedTitle": "秘密は永久に削除されました。", "destroyedSubtitle": "復元またはアクセスすることはできません。",
+    "createNew": "新しい秘密を作成", "createNewLink": "新しい秘密を作成する", "secretCopied": "秘密をコピーしました"
+  },
+  "admin": {
+    "title": "管理ダッシュボード", "subtitle": "NoTraceプラットフォームの統計を表示します。",
+    "accessRequired": "管理者アクセスが必要です", "keyPlaceholder": "管理者キーを入力",
+    "invalidKey": "無効な管理者キーです。", "accessButton": "ダッシュボードにアクセス", "loading": "読み込み中...",
+    "stats": "プラットフォーム統計", "totalCreated": "合計作成数", "totalRead": "合計読了数",
+    "activeSecrets": "アクティブな秘密", "destroyed": "削除済み", "allTime": "累計",
+    "secretsRevealed": "公開された秘密", "waitingToRead": "読み待ち",
+    "alreadyBurned": "すでに焼却済み", "readRate": "読了率", "signOut": "サインアウト"
+  },
+  "footer": { "copy": "ログなし · 追跡なし · アカウントなし", "admin": "管理者" }
+}

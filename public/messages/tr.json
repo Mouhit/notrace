@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "Anonim · Geçici" },
+  "home": { "title": "Bir sır gönder.", "subtitle": "Okuduktan sonra yanar. Hesap yok. Log yok." },
+  "compose": {
+    "titlePlaceholder": "Başlık (isteğe bağlı)", "contentPlaceholder": "Gizli mesajınızı buraya yazın veya yapıştırın...",
+    "validity": "Bağlantı geçerliliği", "expiry5min": "5 dk", "expiry1hr": "1 saat", "expiry24hr": "24 saat", "expiryNever": "Süresiz",
+    "passwordPlaceholder": "Şifre (isteğe bağlı)", "createButton": "Güvenli Bağlantı Oluştur", "creating": "Güvenlik altına alınıyor...",
+    "preview": "Önizleme", "shortcut": "Hızlı oluşturmak için Ctrl+Enter'a basın",
+    "emptyError": "Lütfen bir mesaj girin", "successBadge": "Gizli bağlantı oluşturuldu",
+    "copyLink": "Bağlantıyı Kopyala", "copied": "Kopyalandı!", "share": "Paylaş", "whatsapp": "WhatsApp",
+    "expiresIn": "Süresi dolacak", "neverExpires": "Hiç dolmaz",
+    "createAnother": "Başka bir sır oluştur", "backToEdit": "Düzenlemeye dön",
+    "previewLabel": "Önizleme", "previewNote": "Alıcı mesajınızı böyle görecek."
+  },
+  "read": {
+    "verifying": "Sır doğrulanıyor...", "invalidTitle": "Geçersiz veya bozuk bağlantı",
+    "invalidSubtitle": "Bu sır mevcut değil veya hiç oluşturulmadı.",
+    "alreadyReadTitle": "Zaten görüntülendi veya süresi doldu", "alreadyReadSubtitle": "Sırlar yalnızca bir kez okunabilir.",
+    "errorTitle": "Bir şeyler ters gitti", "errorSubtitle": "Sır yüklenemedi. Lütfen tekrar deneyin.",
+    "passwordProtected": "Şifre korumalı", "enterPassword": "Kilidi açmak için şifreyi girin.",
+    "passwordPlaceholder": "Şifreyi girin", "wrongPassword": "Yanlış şifre.",
+    "unlock": "Kilidi Aç", "selfDestruct": "Bu mesaj görüntülendikten sonra kendini yok edecek.",
+    "selfDestructNote": "Bir kez ortaya çıktığında sır kalıcı olarak yok edilir.",
+    "reveal": "Sırrı Ortaya Çıkar", "retrieving": "Sır alınıyor...",
+    "secretMessage": "Gizli mesaj", "copySecret": "Sırrı Kopyala",
+    "destroyNote": "Zamanlayıcı bittiğinde bu sır kalıcı olarak yok edilecek.",
+    "destroyedTitle": "Sır kalıcı olarak yok edildi.", "destroyedSubtitle": "Kurtarılamaz veya tekrar erişilemez.",
+    "createNew": "Yeni Sır Oluştur", "createNewLink": "Yeni bir sır oluştur", "secretCopied": "Sır kopyalandı"
+  },
+  "admin": {
+    "title": "Yönetici Paneli", "subtitle": "NoTrace platform istatistiklerini görüntüle.",
+    "accessRequired": "Yönetici erişimi gerekli", "keyPlaceholder": "Yönetici anahtarını girin",
+    "invalidKey": "Geçersiz yönetici anahtarı.", "accessButton": "Panele Eriş", "loading": "Yükleniyor...",
+    "stats": "Platform İstatistikleri", "totalCreated": "Toplam Oluşturulan", "totalRead": "Toplam Okunan",
+    "activeSecrets": "Aktif Sırlar", "destroyed": "Yok Edilen", "allTime": "Tüm Zamanlar",
+    "secretsRevealed": "Ortaya Çıkan Sırlar", "waitingToRead": "Okunmayı bekliyor",
+    "alreadyBurned": "Zaten yakıldı", "readRate": "Okuma oranı", "signOut": "Çıkış yap"
+  },
+  "footer": { "copy": "Log yok · Takip yok · Hesap yok", "admin": "Yönetici" }
+}

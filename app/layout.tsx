@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { LanguageProvider } from "@/lib/language";
 
 export const metadata: Metadata = {
   title: "NoTrace — Send secrets securely",
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
         <Toaster
           theme="dark"
           toastOptions={{

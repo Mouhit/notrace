@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "Anonym · Vergänglich" },
+  "home": { "title": "Sende ein Geheimnis.", "subtitle": "Verbrennt nach dem Lesen. Keine Konten. Keine Protokolle." },
+  "compose": {
+    "titlePlaceholder": "Titel (optional)", "contentPlaceholder": "Gib deine geheime Nachricht hier ein...",
+    "validity": "Link-Gültigkeit", "expiry5min": "5 Min", "expiry1hr": "1 Std", "expiry24hr": "24 Std", "expiryNever": "Kein Ablauf",
+    "passwordPlaceholder": "Passwort (optional)", "createButton": "Sicheren Link erstellen", "creating": "Wird gesichert...",
+    "preview": "Vorschau", "shortcut": "Drücke Strg+Eingabe zum schnellen Erstellen",
+    "emptyError": "Bitte gib eine Nachricht ein", "successBadge": "Geheimer Link erstellt",
+    "copyLink": "Link kopieren", "copied": "Kopiert!", "share": "Teilen", "whatsapp": "WhatsApp",
+    "expiresIn": "Läuft ab in", "neverExpires": "Läuft nie ab",
+    "createAnother": "Ein weiteres Geheimnis erstellen", "backToEdit": "Zurück zum Bearbeiten",
+    "previewLabel": "Vorschau", "previewNote": "So wird der Empfänger deine Nachricht sehen."
+  },
+  "read": {
+    "verifying": "Geheimnis wird überprüft...", "invalidTitle": "Ungültiger oder defekter Link",
+    "invalidSubtitle": "Dieses Geheimnis existiert nicht oder wurde nie erstellt.",
+    "alreadyReadTitle": "Bereits angesehen oder abgelaufen", "alreadyReadSubtitle": "Geheimnisse können nur einmal gelesen werden.",
+    "errorTitle": "Etwas ist schiefgelaufen", "errorSubtitle": "Das Geheimnis konnte nicht geladen werden. Bitte versuche es erneut.",
+    "passwordProtected": "Passwortgeschützt", "enterPassword": "Gib das Passwort ein, um zu entsperren.",
+    "passwordPlaceholder": "Passwort eingeben", "wrongPassword": "Falsches Passwort.",
+    "unlock": "Entsperren", "selfDestruct": "Diese Nachricht wird nach dem Anzeigen selbst zerstört.",
+    "selfDestructNote": "Einmal enthüllt, wird das Geheimnis dauerhaft vernichtet.",
+    "reveal": "Geheimnis enthüllen", "retrieving": "Geheimnis wird abgerufen...",
+    "secretMessage": "Geheime Nachricht", "copySecret": "Geheimnis kopieren",
+    "destroyNote": "Dieses Geheimnis wird dauerhaft vernichtet, wenn der Timer abläuft.",
+    "destroyedTitle": "Geheimnis dauerhaft vernichtet.", "destroyedSubtitle": "Es kann nicht wiederhergestellt oder erneut aufgerufen werden.",
+    "createNew": "Neues Geheimnis erstellen", "createNewLink": "Ein neues Geheimnis erstellen", "secretCopied": "Geheimnis kopiert"
+  },
+  "admin": {
+    "title": "Admin-Dashboard", "subtitle": "NoTrace-Plattformstatistiken anzeigen.",
+    "accessRequired": "Admin-Zugang erforderlich", "keyPlaceholder": "Admin-Schlüssel eingeben",
+    "invalidKey": "Ungültiger Admin-Schlüssel.", "accessButton": "Dashboard aufrufen", "loading": "Wird geladen...",
+    "stats": "Plattformstatistiken", "totalCreated": "Gesamt erstellt", "totalRead": "Gesamt gelesen",
+    "activeSecrets": "Aktive Geheimnisse", "destroyed": "Vernichtet", "allTime": "Gesamt",
+    "secretsRevealed": "Enthüllte Geheimnisse", "waitingToRead": "Warten auf Lesen",
+    "alreadyBurned": "Bereits verbrannt", "readRate": "Leserate", "signOut": "Abmelden"
+  },
+  "footer": { "copy": "Keine Protokolle · Kein Tracking · Keine Konten", "admin": "Admin" }
+}

@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "বেনামী · ক্ষণস্থায়ী" },
+  "home": { "title": "একটি গোপন বার্তা পাঠান।", "subtitle": "পড়ার পরে পুড়ে যাবে। কোনো অ্যাকাউন্ট নেই। কোনো লগ নেই।" },
+  "compose": {
+    "titlePlaceholder": "শিরোনাম (ঐচ্ছিক)", "contentPlaceholder": "এখানে আপনার গোপন বার্তা টাইপ করুন বা পেস্ট করুন...",
+    "validity": "লিংকের মেয়াদ", "expiry5min": "৫ মিনিট", "expiry1hr": "১ ঘণ্টা", "expiry24hr": "২৪ ঘণ্টা", "expiryNever": "মেয়াদ নেই",
+    "passwordPlaceholder": "পাসওয়ার্ড (ঐচ্ছিক)", "createButton": "নিরাপদ লিংক তৈরি করুন", "creating": "সুরক্ষিত হচ্ছে...",
+    "preview": "প্রিভিউ", "shortcut": "দ্রুত তৈরি করতে Ctrl+Enter চাপুন",
+    "emptyError": "একটি বার্তা লিখুন", "successBadge": "গোপন লিংক তৈরি হয়েছে",
+    "copyLink": "লিংক কপি করুন", "copied": "কপি হয়েছে!", "share": "শেয়ার করুন", "whatsapp": "হোয়াটসঅ্যাপ",
+    "expiresIn": "মেয়াদ শেষ হবে", "neverExpires": "কখনো শেষ হবে না",
+    "createAnother": "আরেকটি গোপন বার্তা তৈরি করুন", "backToEdit": "সম্পাদনায় ফিরুন",
+    "previewLabel": "প্রিভিউ", "previewNote": "প্রাপক এভাবে আপনার বার্তা দেখবেন।"
+  },
+  "read": {
+    "verifying": "গোপন বার্তা যাচাই হচ্ছে...", "invalidTitle": "অবৈধ বা ভাঙা লিংক",
+    "invalidSubtitle": "এই গোপন বার্তাটি বিদ্যমান নেই বা কখনো তৈরি হয়নি।",
+    "alreadyReadTitle": "ইতিমধ্যে দেখা হয়েছে বা মেয়াদ শেষ", "alreadyReadSubtitle": "গোপন বার্তা শুধুমাত্র একবার পড়া যায়।",
+    "errorTitle": "কিছু একটা ভুল হয়েছে", "errorSubtitle": "গোপন বার্তা লোড করা যায়নি। আবার চেষ্টা করুন।",
+    "passwordProtected": "পাসওয়ার্ড সুরক্ষিত", "enterPassword": "আনলক করতে পাসওয়ার্ড লিখুন।",
+    "passwordPlaceholder": "পাসওয়ার্ড লিখুন", "wrongPassword": "ভুল পাসওয়ার্ড।",
+    "unlock": "আনলক করুন", "selfDestruct": "এই বার্তাটি দেখার পরে নিজেই ধ্বংস হয়ে যাবে।",
+    "selfDestructNote": "একবার প্রকাশিত হলে, গোপন বার্তাটি স্থায়ীভাবে মুছে যাবে।",
+    "reveal": "গোপন বার্তা প্রকাশ করুন", "retrieving": "গোপন বার্তা আনা হচ্ছে...",
+    "secretMessage": "গোপন বার্তা", "copySecret": "গোপন বার্তা কপি করুন",
+    "destroyNote": "টাইমার শেষ হলে এই গোপন বার্তাটি স্থায়ীভাবে মুছে যাবে।",
+    "destroyedTitle": "গোপন বার্তাটি স্থায়ীভাবে ধ্বংস হয়েছে।", "destroyedSubtitle": "এটি পুনরুদ্ধার বা আর অ্যাক্সেস করা যাবে না।",
+    "createNew": "নতুন গোপন বার্তা তৈরি করুন", "createNewLink": "একটি নতুন গোপন বার্তা তৈরি করুন", "secretCopied": "গোপন বার্তা কপি হয়েছে"
+  },
+  "admin": {
+    "title": "অ্যাডমিন ড্যাশবোর্ড", "subtitle": "NoTrace প্ল্যাটফর্মের পরিসংখ্যান দেখুন।",
+    "accessRequired": "অ্যাডমিন অ্যাক্সেস প্রয়োজন", "keyPlaceholder": "অ্যাডমিন কী লিখুন",
+    "invalidKey": "অবৈধ অ্যাডমিন কী।", "accessButton": "ড্যাশবোর্ড অ্যাক্সেস করুন", "loading": "লোড হচ্ছে...",
+    "stats": "প্ল্যাটফর্ম পরিসংখ্যান", "totalCreated": "মোট তৈরি", "totalRead": "মোট পড়া",
+    "activeSecrets": "সক্রিয় গোপন বার্তা", "destroyed": "ধ্বংস হয়েছে", "allTime": "সর্বকালীন",
+    "secretsRevealed": "প্রকাশিত গোপন বার্তা", "waitingToRead": "পড়ার অপেক্ষায়",
+    "alreadyBurned": "ইতিমধ্যে পুড়েছে", "readRate": "পঠন হার", "signOut": "সাইন আউট"
+  },
+  "footer": { "copy": "কোনো লগ নেই · কোনো ট্র্যাকিং নেই · কোনো অ্যাকাউন্ট নেই", "admin": "অ্যাডমিন" }
+}

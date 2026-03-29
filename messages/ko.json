@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "익명 · 일회성" },
+  "home": { "title": "비밀을 보내세요.", "subtitle": "읽은 후 소각. 계정 불필요. 기록 없음." },
+  "compose": {
+    "titlePlaceholder": "제목 (선택사항)", "contentPlaceholder": "여기에 비밀 메시지를 입력하거나 붙여넣으세요...",
+    "validity": "링크 유효 기간", "expiry5min": "5분", "expiry1hr": "1시간", "expiry24hr": "24시간", "expiryNever": "만료 없음",
+    "passwordPlaceholder": "비밀번호 (선택사항)", "createButton": "보안 링크 만들기", "creating": "보안 처리 중...",
+    "preview": "미리보기", "shortcut": "Ctrl+Enter로 빠르게 만들기",
+    "emptyError": "메시지를 입력해 주세요", "successBadge": "비밀 링크 생성됨",
+    "copyLink": "링크 복사", "copied": "복사됨!", "share": "공유", "whatsapp": "WhatsApp",
+    "expiresIn": "만료", "neverExpires": "만료 없음",
+    "createAnother": "다른 비밀 만들기", "backToEdit": "편집으로 돌아가기",
+    "previewLabel": "미리보기", "previewNote": "수신자에게 이렇게 보입니다."
+  },
+  "read": {
+    "verifying": "비밀 확인 중...", "invalidTitle": "유효하지 않거나 손상된 링크",
+    "invalidSubtitle": "이 비밀은 존재하지 않거나 생성된 적이 없습니다.",
+    "alreadyReadTitle": "이미 조회되었거나 만료됨", "alreadyReadSubtitle": "비밀은 한 번만 읽을 수 있습니다.",
+    "errorTitle": "오류가 발생했습니다", "errorSubtitle": "비밀을 불러올 수 없습니다. 다시 시도해 주세요.",
+    "passwordProtected": "비밀번호 보호됨", "enterPassword": "비밀번호를 입력하여 잠금 해제하세요.",
+    "passwordPlaceholder": "비밀번호 입력", "wrongPassword": "잘못된 비밀번호입니다.",
+    "unlock": "잠금 해제", "selfDestruct": "이 메시지는 열람 후 자동 삭제됩니다.",
+    "selfDestructNote": "공개되면 비밀은 영구적으로 삭제됩니다.",
+    "reveal": "비밀 공개", "retrieving": "비밀 가져오는 중...",
+    "secretMessage": "비밀 메시지", "copySecret": "비밀 복사",
+    "destroyNote": "타이머가 끝나면 이 비밀은 영구적으로 삭제됩니다.",
+    "destroyedTitle": "비밀이 영구적으로 삭제되었습니다.", "destroyedSubtitle": "복구하거나 다시 접근할 수 없습니다.",
+    "createNew": "새 비밀 만들기", "createNewLink": "새 비밀 만들기", "secretCopied": "비밀 복사됨"
+  },
+  "admin": {
+    "title": "관리자 대시보드", "subtitle": "NoTrace 플랫폼 통계를 확인하세요.",
+    "accessRequired": "관리자 접근 필요", "keyPlaceholder": "관리자 키 입력",
+    "invalidKey": "유효하지 않은 관리자 키입니다.", "accessButton": "대시보드 접근", "loading": "로딩 중...",
+    "stats": "플랫폼 통계", "totalCreated": "총 생성됨", "totalRead": "총 읽음",
+    "activeSecrets": "활성 비밀", "destroyed": "삭제됨", "allTime": "전체 기간",
+    "secretsRevealed": "공개된 비밀", "waitingToRead": "읽기 대기 중",
+    "alreadyBurned": "이미 소각됨", "readRate": "읽기 비율", "signOut": "로그아웃"
+  },
+  "footer": { "copy": "기록 없음 · 추적 없음 · 계정 없음", "admin": "관리자" }
+}

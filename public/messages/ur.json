@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "گمنام · عارضی" },
+  "home": { "title": "ایک راز بھیجیں۔", "subtitle": "پڑھنے کے بعد جل جائے۔ کوئی اکاؤنٹ نہیں۔ کوئی لاگ نہیں۔" },
+  "compose": {
+    "titlePlaceholder": "عنوان (اختیاری)", "contentPlaceholder": "یہاں اپنا خفیہ پیغام ٹائپ کریں یا پیسٹ کریں...",
+    "validity": "لنک کی مدت", "expiry5min": "5 منٹ", "expiry1hr": "1 گھنٹہ", "expiry24hr": "24 گھنٹے", "expiryNever": "کوئی میعاد نہیں",
+    "passwordPlaceholder": "پاس ورڈ (اختیاری)", "createButton": "محفوظ لنک بنائیں", "creating": "محفوظ ہو رہا ہے...",
+    "preview": "پیش نظارہ", "shortcut": "جلدی بنانے کے لیے Ctrl+Enter دبائیں",
+    "emptyError": "براہ کرم ایک پیغام درج کریں", "successBadge": "خفیہ لنک بنایا گیا",
+    "copyLink": "لنک کاپی کریں", "copied": "کاپی ہو گیا!", "share": "شیئر کریں", "whatsapp": "واٹس ایپ",
+    "expiresIn": "میعاد ختم ہوگی", "neverExpires": "کبھی ختم نہیں ہوگا",
+    "createAnother": "ایک اور راز بنائیں", "backToEdit": "ترمیم پر واپس جائیں",
+    "previewLabel": "پیش نظارہ", "previewNote": "وصول کنندہ آپ کا پیغام اس طرح دیکھے گا۔"
+  },
+  "read": {
+    "verifying": "راز کی تصدیق ہو رہی ہے...", "invalidTitle": "غلط یا ٹوٹا ہوا لنک",
+    "invalidSubtitle": "یہ راز موجود نہیں یا کبھی بنایا نہیں گیا۔",
+    "alreadyReadTitle": "پہلے ہی دیکھا جا چکا یا میعاد ختم", "alreadyReadSubtitle": "رازوں کو صرف ایک بار پڑھا جا سکتا ہے۔",
+    "errorTitle": "کچھ غلط ہو گیا", "errorSubtitle": "راز لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
+    "passwordProtected": "پاس ورڈ سے محفوظ", "enterPassword": "کھولنے کے لیے پاس ورڈ درج کریں۔",
+    "passwordPlaceholder": "پاس ورڈ درج کریں", "wrongPassword": "غلط پاس ورڈ۔",
+    "unlock": "کھولیں", "selfDestruct": "یہ پیغام دیکھنے کے بعد خود بخود ختم ہو جائے گا۔",
+    "selfDestructNote": "ایک بار ظاہر ہونے کے بعد، راز مستقل طور پر تباہ ہو جاتا ہے۔",
+    "reveal": "راز ظاہر کریں", "retrieving": "راز حاصل ہو رہا ہے...",
+    "secretMessage": "خفیہ پیغام", "copySecret": "راز کاپی کریں",
+    "destroyNote": "ٹائمر ختم ہونے کے بعد یہ راز مستقل طور پر تباہ ہو جائے گا۔",
+    "destroyedTitle": "راز مستقل طور پر تباہ ہو گیا۔", "destroyedSubtitle": "اسے دوبارہ حاصل یا دیکھا نہیں جا سکتا۔",
+    "createNew": "نیا راز بنائیں", "createNewLink": "ایک نیا راز بنائیں", "secretCopied": "راز کاپی ہو گیا"
+  },
+  "admin": {
+    "title": "ایڈمن ڈیش بورڈ", "subtitle": "NoTrace پلیٹ فارم کے اعداد و شمار دیکھیں۔",
+    "accessRequired": "ایڈمن رسائی درکار ہے", "keyPlaceholder": "ایڈمن کی درج کریں",
+    "invalidKey": "غلط ایڈمن کی۔", "accessButton": "ڈیش بورڈ تک رسائی", "loading": "لوڈ ہو رہا ہے...",
+    "stats": "پلیٹ فارم کے اعداد و شمار", "totalCreated": "کل بنائے گئے", "totalRead": "کل پڑھے گئے",
+    "activeSecrets": "فعال راز", "destroyed": "تباہ شدہ", "allTime": "تمام وقت",
+    "secretsRevealed": "ظاہر کیے گئے راز", "waitingToRead": "پڑھے جانے کے انتظار میں",
+    "alreadyBurned": "پہلے ہی جلائے جا چکے", "readRate": "پڑھنے کی شرح", "signOut": "سائن آؤٹ"
+  },
+  "footer": { "copy": "کوئی لاگ نہیں · کوئی ٹریکنگ نہیں · کوئی اکاؤنٹ نہیں", "admin": "ایڈمن" }
+}

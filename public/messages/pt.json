@@ -1,0 +1,40 @@
+{
+  "nav": { "tagline": "Anônimo · Efêmero" },
+  "home": { "title": "Envie um segredo.", "subtitle": "Queima após leitura. Sem contas. Sem registros." },
+  "compose": {
+    "titlePlaceholder": "Título (opcional)", "contentPlaceholder": "Digite ou cole sua mensagem secreta aqui...",
+    "validity": "Validade do link", "expiry5min": "5 min", "expiry1hr": "1 hora", "expiry24hr": "24 horas", "expiryNever": "Sem expiração",
+    "passwordPlaceholder": "Senha (opcional)", "createButton": "Criar link seguro", "creating": "Protegendo...",
+    "preview": "Visualizar", "shortcut": "Pressione Ctrl+Enter para criar rapidamente",
+    "emptyError": "Por favor, insira uma mensagem", "successBadge": "Link secreto criado",
+    "copyLink": "Copiar link", "copied": "Copiado!", "share": "Compartilhar", "whatsapp": "WhatsApp",
+    "expiresIn": "Expira em", "neverExpires": "Nunca expira",
+    "createAnother": "Criar outro segredo", "backToEdit": "Voltar à edição",
+    "previewLabel": "Visualização", "previewNote": "É assim que o destinatário verá sua mensagem."
+  },
+  "read": {
+    "verifying": "Verificando segredo...", "invalidTitle": "Link inválido ou quebrado",
+    "invalidSubtitle": "Este segredo não existe ou nunca foi criado.",
+    "alreadyReadTitle": "Já visualizado ou expirado", "alreadyReadSubtitle": "Os segredos só podem ser lidos uma vez.",
+    "errorTitle": "Algo deu errado", "errorSubtitle": "Não foi possível carregar o segredo. Tente novamente.",
+    "passwordProtected": "Protegido por senha", "enterPassword": "Digite a senha para desbloquear.",
+    "passwordPlaceholder": "Digite a senha", "wrongPassword": "Senha incorreta.",
+    "unlock": "Desbloquear", "selfDestruct": "Esta mensagem se autodestruirá após a visualização.",
+    "selfDestructNote": "Uma vez revelado, o segredo é destruído permanentemente.",
+    "reveal": "Revelar segredo", "retrieving": "Recuperando segredo...",
+    "secretMessage": "Mensagem secreta", "copySecret": "Copiar segredo",
+    "destroyNote": "Este segredo será destruído permanentemente quando o temporizador terminar.",
+    "destroyedTitle": "Segredo destruído permanentemente.", "destroyedSubtitle": "Não pode ser recuperado ou acessado novamente.",
+    "createNew": "Criar novo segredo", "createNewLink": "Criar um novo segredo", "secretCopied": "Segredo copiado"
+  },
+  "admin": {
+    "title": "Painel administrativo", "subtitle": "Ver estatísticas da plataforma NoTrace.",
+    "accessRequired": "Acesso administrativo necessário", "keyPlaceholder": "Digite a chave de administrador",
+    "invalidKey": "Chave de administrador inválida.", "accessButton": "Acessar painel", "loading": "Carregando...",
+    "stats": "Estatísticas da plataforma", "totalCreated": "Total criados", "totalRead": "Total lidos",
+    "activeSecrets": "Segredos ativos", "destroyed": "Destruídos", "allTime": "Todo o tempo",
+    "secretsRevealed": "Segredos revelados", "waitingToRead": "Aguardando leitura",
+    "alreadyBurned": "Já queimados", "readRate": "Taxa de leitura", "signOut": "Sair"
+  },
+  "footer": { "copy": "Sem registros · Sem rastreamento · Sem contas", "admin": "Admin" }
+}
