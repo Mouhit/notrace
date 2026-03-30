@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useLang } from "@/lib/language";
 import CountdownRing from "./CountdownRing";
 import SecureReply from "./SecureReply";
+import { importEncryptionKey, decryptSecret, extractKeyFromUrl } from "@/lib/crypto";
 
 type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm" | "revealing" | "revealed" | "destroyed" | "error" | "scheduled";
 
@@ -24,6 +25,8 @@ export default function ReadView({ id }: { id: string }) {
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [allowReply, setAllowReply] = useState(false);
   const [originalId, setOriginalId] = useState<string | null>(null);
+  const [replyActive, setReplyActive] = useState(false);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
   useEffect(() => {
     async function peek() {
@@ -42,10 +45,24 @@ export default function ReadView({ id }: { id: string }) {
 
   useEffect(() => {
     if (phase !== "revealed" || destroyed) return;
-    if (countdown <= 0) { setDestroyed(true); setPhase("destroyed"); return; }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    if (countdown <= 0) {
+      // If reply box is open or user was active in last 5 mins — wait
+      const inactiveSecs = (Date.now() - lastActivity) / 1000;
+      if (replyActive || inactiveSecs < 300) {
+        // Check again in 10 seconds
+        const timer = setTimeout(() => setCountdown((c) => c), 10000);
+        return () => clearTimeout(timer);
+      }
+      setDestroyed(true);
+      setPhase("destroyed");
+      return;
+    }
+    const timer = setTimeout(() => {
+      // Pause countdown if reply box is open
+      if (!replyActive) setCountdown((c) => c - 1);
+    }, 1000);
     return () => clearTimeout(timer);
-  }, [phase, countdown, destroyed]);
+  }, [phase, countdown, destroyed, replyActive, lastActivity]);
 
   const handleReveal = async (pw?: string) => {
     setPhase("revealing");
@@ -59,18 +76,48 @@ export default function ReadView({ id }: { id: string }) {
       if (res.status === 403) { setPasswordError(t("read", "wrongPassword")); setPhase("passwordEntry"); return; }
       if (res.status === 410) { setPhase("alreadyRead"); return; }
       if (!res.ok) { setPhase("error"); return; }
-      setRevealedTitle(data.title);
-      setRevealedContent(data.content);
+
+      // ── Zero-knowledge decryption ──
+      // Read AES key from URL fragment — never sent to server
+      let finalContent = data.content;
+      let finalTitle = data.title;
+      const keyString = extractKeyFromUrl();
+      if (keyString) {
+        try {
+          const cryptoKey = await importEncryptionKey(keyString);
+          finalContent = await decryptSecret(data.content, cryptoKey);
+          if (data.title && data.title.length > 20) {
+            try { finalTitle = await decryptSecret(data.title, cryptoKey); } catch { /* title not encrypted */ }
+          }
+        } catch {
+          console.warn("Decryption failed — showing raw content");
+        }
+      }
+
+      setRevealedTitle(finalTitle);
+      setRevealedContent(finalContent);
       setAllowReply(data.allow_reply || false);
       setOriginalId(id);
-      const secs = Math.max(7, Math.min(120, Math.ceil(data.content.length / 8)));
+      const secs = Math.max(7, Math.min(120, Math.ceil(finalContent.length / 8)));
       setCountdownTotal(secs);
       setCountdown(secs);
       setPhase("revealed");
     } catch { setPhase("error"); }
   };
 
-  const handlePasswordSubmit = () => {
+  // Track user activity — reset lastActivity on any interaction
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handler = () => setLastActivity(Date.now());
+    window.addEventListener("mousemove", handler);
+    window.addEventListener("keydown", handler);
+    window.addEventListener("touchstart", handler);
+    return () => {
+      window.removeEventListener("mousemove", handler);
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("touchstart", handler);
+    };
+  }, [phase]);
     if (!passwordInput.trim()) return;
     setPasswordError("");
     handleReveal(passwordInput);
@@ -245,7 +292,15 @@ export default function ReadView({ id }: { id: string }) {
           <p className="text-xs text-slate-600">{t("read", "destroyNote")}</p>
         </div>
       </div>
-      {allowReply && originalId && <SecureReply originalId={originalId} />}
+      {allowReply && originalId && (
+        <SecureReply
+          originalId={originalId}
+          onActiveChange={(active) => {
+            setReplyActive(active);
+            setLastActivity(Date.now());
+          }}
+        />
+      )}
     </div>
   );
 

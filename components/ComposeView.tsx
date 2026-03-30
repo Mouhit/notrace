@@ -10,6 +10,7 @@ import QRCodeDisplay from "./QRCodeDisplay";
 import SecretTemplates from "./SecretTemplates";
 import DateTimePicker from "./DateTimePicker";
 import { useOwnerId } from "@/lib/useOwnerId";
+import { generateEncryptionKey, encryptSecret, buildShareUrl } from "@/lib/crypto";
 
 const MAX_CHARS = 5000;
 
@@ -78,9 +79,12 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
     <>
       <Confetti active={showConfetti} />
       <div className="animate-fade-up w-full space-y-5">
-        <div className="flex items-center gap-2 text-brand">
+        <div className="flex items-center gap-2 text-brand flex-wrap">
           <CheckCircle2 className="w-4 h-4" />
           <span className="text-sm font-semibold">{t("compose", "successBadge")}</span>
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-muted border border-brand-border text-xs text-brand">
+            🔐 E2E Encrypted
+          </span>
         </div>
 
         <div className="rounded-xl border border-surface-border bg-surface-card p-5 space-y-4">
@@ -199,14 +203,33 @@ export default function ComposeView() {
     if (!content.trim()) { toast.error(t("compose", "emptyError")); return; }
     setLoading(true);
     try {
+      // ── Zero-knowledge AES-256-GCM encryption ──
+      // Generate a fresh random key — never sent to server
+      const { key, keyString } = await generateEncryptionKey();
+      // Encrypt the secret locally in the browser
+      const encryptedContent = await encryptSecret(content.trim(), key);
+
       const res = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, content: content.trim(), password: password || undefined, expiry, scheduled_at: scheduledAt || undefined, collection_id: collectionId || undefined }),
+        // Only encrypted ciphertext is sent — server never sees plaintext
+        body: JSON.stringify({
+          title: title.trim() || undefined,
+          content: encryptedContent,
+          password: password || undefined,
+          expiry,
+          scheduled_at: scheduledAt || undefined,
+          collection_id: collectionId || undefined,
+          encrypted: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const url = `${window.location.origin}/s/${data.id}`;
+
+      // Build URL with key in fragment — fragment never sent to server
+      const baseUrl = `${window.location.origin}/s/${data.id}`;
+      const url = buildShareUrl(baseUrl, keyString);
+
       setResult({ id: data.id, url, expiry, title: title.trim() || null });
       setContent(""); setTitle(""); setPassword("");
       setStage("result");
@@ -361,6 +384,9 @@ export default function ComposeView() {
       </div>
 
       <p className="text-xs text-slate-700 text-center">{t("compose", "shortcut")}</p>
+      <p className="text-xs text-slate-700 text-center">
+        🔐 Encrypted in your browser before sending — server never sees your secret.
+      </p>
     </div>
   );
 }

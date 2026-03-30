@@ -7,9 +7,10 @@ const MAX_CHARS = 5000;
 
 interface SecureReplyProps {
   originalId: string;
+  onActiveChange?: (active: boolean) => void;
 }
 
-export default function SecureReply({ originalId }: SecureReplyProps) {
+export default function SecureReply({ originalId, onActiveChange }: SecureReplyProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,7 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
       setReplyId(data.reply_id);
       setContent("");
       contentRef.current = "";
+      onActiveChange?.(false); // reply sent — destroy timer can resume
     } catch (err: any) {
       toast.error(err.message || "Failed to send reply");
     } finally {
@@ -82,7 +84,7 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
   return (
     <div className="mt-5 space-y-3">
       {!open ? (
-        <button onClick={() => setOpen(true)}
+        <button onClick={() => { setOpen(true); onActiveChange?.(true); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
         >
           <Send className="w-3.5 h-3.5" />
@@ -106,7 +108,7 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
               {content.length} / {MAX_CHARS}
             </span>
             <div className="flex gap-2">
-              <button onClick={() => { setOpen(false); setContent(""); contentRef.current = ""; }}
+              <button onClick={() => { setOpen(false); setContent(""); contentRef.current = ""; onActiveChange?.(false); }}
                 className="px-4 py-2 rounded-lg border border-surface-border text-xs text-slate-500 hover:text-slate-300 transition-all"
               >
                 Cancel
