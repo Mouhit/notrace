@@ -9,6 +9,7 @@ import Confetti from "./Confetti";
 import QRCodeDisplay from "./QRCodeDisplay";
 import SecretTemplates from "./SecretTemplates";
 import DateTimePicker from "./DateTimePicker";
+import { useOwnerId } from "@/lib/useOwnerId";
 
 const MAX_CHARS = 5000;
 
@@ -163,7 +164,10 @@ export default function ComposeView() {
   const [expiry, setExpiry] = useState<Expiry>("1hr");
   const [password, setPassword] = useState("");
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [collections, setCollections] = useState<{id: string; name: string; emoji: string}[]>([]);
   const [loading, setLoading] = useState(false);
+  const ownerId = useOwnerId();
   const [result, setResult] = useState<ResultData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -183,6 +187,14 @@ export default function ComposeView() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [content]);
 
+  useEffect(() => {
+    if (!ownerId) return;
+    fetch(`/api/collections?owner_id=${ownerId}`)
+      .then((r) => r.json())
+      .then((d) => setCollections(d.collections || []))
+      .catch(() => {});
+  }, [ownerId]);
+
   const handleCreate = useCallback(async () => {
     if (!content.trim()) { toast.error(t("compose", "emptyError")); return; }
     setLoading(true);
@@ -190,7 +202,7 @@ export default function ComposeView() {
       const res = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, content: content.trim(), password: password || undefined, expiry, scheduled_at: scheduledAt || undefined }),
+        body: JSON.stringify({ title: title.trim() || undefined, content: content.trim(), password: password || undefined, expiry, scheduled_at: scheduledAt || undefined, collection_id: collectionId || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -294,6 +306,43 @@ export default function ComposeView() {
 
       {/* Scheduled reveal */}
       <DateTimePicker value={scheduledAt} onChange={setScheduledAt} />
+
+      {/* Save to collection */}
+      {collections.length > 0 && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setCollectionId(collectionId ? null : collections[0].id)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <span className="text-base">{collectionId ? collections.find(c => c.id === collectionId)?.emoji ?? "📁" : "📁"}</span>
+            {collectionId
+              ? <span className="text-brand">Saved to: {collections.find(c => c.id === collectionId)?.name}</span>
+              : <span>Save to a collection (optional)</span>
+            }
+          </button>
+          {collectionId !== null && (
+            <div className="flex flex-wrap gap-2">
+              {collections.map((col) => (
+                <button key={col.id} type="button" onClick={() => setCollectionId(col.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${
+                    collectionId === col.id
+                      ? "bg-brand-muted border-brand-border text-brand font-semibold"
+                      : "border-surface-border text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                  }`}
+                >
+                  {col.emoji} {col.name}
+                </button>
+              ))}
+              <button type="button" onClick={() => setCollectionId(null)}
+                className="px-3 py-1.5 rounded-full text-xs border border-surface-border text-slate-600 hover:text-slate-400 transition-all"
+              >
+                None
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-3 pt-1">
         <button onClick={handleCreate} disabled={loading || !content.trim()}

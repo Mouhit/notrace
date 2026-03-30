@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id } = await req.json();
+    const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id, collection_id } = await req.json();
 
     if (!content?.trim()) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       scheduled_at: scheduled_at || null,
       is_reply: is_reply || false,
       reply_to_id: reply_to_id || null,
+      collection_id: collection_id || null,
     });
 
     if (error) throw error;

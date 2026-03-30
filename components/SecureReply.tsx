@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Send, Loader2, CheckCircle2, Copy } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,20 +15,30 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
   const [loading, setLoading] = useState(false);
   const [replyId, setReplyId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Use ref to prevent stale closure issues that cause vanishing text
+  const contentRef = useRef(content);
+
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value.slice(0, MAX_CHARS);
+    contentRef.current = val;
+    setContent(val);
+  }, []);
 
   const handleSend = async () => {
-    if (!content.trim()) return;
+    const currentContent = contentRef.current;
+    if (!currentContent.trim()) return;
     setLoading(true);
     try {
       const res = await fetch("/api/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content.trim(), reply_to_id: originalId }),
+        body: JSON.stringify({ content: currentContent.trim(), reply_to_id: originalId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setReplyId(data.reply_id);
       setContent("");
+      contentRef.current = "";
     } catch (err: any) {
       toast.error(err.message || "Failed to send reply");
     } finally {
@@ -36,9 +46,7 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
     }
   };
 
-  const replyUrl = replyId
-    ? `${window.location.origin}/s/${replyId}`
-    : null;
+  const replyUrl = replyId ? `${window.location.origin}/s/${replyId}` : null;
 
   const handleCopyReplyLink = async () => {
     if (!replyUrl) return;
@@ -48,7 +56,6 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // After reply sent — show success
   if (replyId && replyUrl) {
     return (
       <div className="mt-5 rounded-xl border border-brand-border bg-brand-muted p-4 space-y-3">
@@ -57,13 +64,12 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
           Secure reply sent!
         </div>
         <p className="text-xs text-slate-400">
-          Share this link with the original sender so they can read your reply. It will self-destruct after they read it.
+          Share this link with the original sender — it self-destructs after they read it.
         </p>
         <div className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2 border border-surface-border">
           <p className="flex-1 text-xs text-slate-300 break-all">{replyUrl}</p>
         </div>
-        <button
-          onClick={handleCopyReplyLink}
+        <button onClick={handleCopyReplyLink}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all"
         >
           {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -76,8 +82,7 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
   return (
     <div className="mt-5 space-y-3">
       {!open ? (
-        <button
-          onClick={() => setOpen(true)}
+        <button onClick={() => setOpen(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
         >
           <Send className="w-3.5 h-3.5" />
@@ -91,28 +96,30 @@ export default function SecureReply({ originalId }: SecureReplyProps) {
           <textarea
             placeholder="Type your secure reply here..."
             value={content}
-            onChange={(e) => setContent(e.target.value.slice(0, MAX_CHARS))}
+            onChange={handleContentChange}
             rows={4}
             autoFocus
             className="w-full px-4 py-3 rounded-xl bg-surface border border-surface-border text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-border focus:ring-1 focus:ring-brand/20 resize-none transition-all"
           />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSend}
-              disabled={loading || !content.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-surface font-bold text-xs hover:bg-brand-dim disabled:opacity-40 transition-all"
-            >
-              {loading
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
-                : <><Send className="w-3.5 h-3.5" /> Send Reply</>
-              }
-            </button>
-            <button
-              onClick={() => setOpen(false)}
-              className="px-4 py-2 rounded-lg border border-surface-border text-xs text-slate-500 hover:text-slate-300 transition-all"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs tabular-nums ${content.length > MAX_CHARS * 0.9 ? "text-red-400" : "text-slate-700"}`}>
+              {content.length} / {MAX_CHARS}
+            </span>
+            <div className="flex gap-2">
+              <button onClick={() => { setOpen(false); setContent(""); contentRef.current = ""; }}
+                className="px-4 py-2 rounded-lg border border-surface-border text-xs text-slate-500 hover:text-slate-300 transition-all"
+              >
+                Cancel
+              </button>
+              <button onClick={handleSend} disabled={loading || !content.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-surface font-bold text-xs hover:bg-brand-dim disabled:opacity-40 transition-all"
+              >
+                {loading
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                  : <><Send className="w-3.5 h-3.5" /> Send Reply</>
+                }
+              </button>
+            </div>
           </div>
         </div>
       )}

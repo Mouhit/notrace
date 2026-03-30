@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { Shield, FolderOpen } from "lucide-react";
 import { useLang } from "@/lib/language";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { t } = useLang();
-
   return (
     <header className="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-sm">
       <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
@@ -30,6 +29,12 @@ export default function Header() {
               {t("nav", "tagline")}
             </span>
           </div>
+          <Link href="/collections"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">Collections</span>
+          </Link>
           <ThemeToggle />
           <LanguageSwitcher />
         </div>
