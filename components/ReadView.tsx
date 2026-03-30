@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useLang } from "@/lib/language";
 import CountdownRing from "./CountdownRing";
+import SecureReply from "./SecureReply";
 
-type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm" | "revealing" | "revealed" | "destroyed" | "error";
+type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm" | "revealing" | "revealed" | "destroyed" | "error" | "scheduled";
 
 export default function ReadView({ id }: { id: string }) {
   const { t } = useLang();
@@ -20,6 +21,9 @@ export default function ReadView({ id }: { id: string }) {
   const [countdown, setCountdown] = useState(0);
   const [countdownTotal, setCountdownTotal] = useState(0);
   const [destroyed, setDestroyed] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [allowReply, setAllowReply] = useState(false);
+  const [originalId, setOriginalId] = useState<string | null>(null);
 
   useEffect(() => {
     async function peek() {
@@ -27,6 +31,7 @@ export default function ReadView({ id }: { id: string }) {
         const res = await fetch(`/api/read?id=${id}`);
         const data = await res.json();
         if (!data.exists) { setPhase(data.already_read ? "alreadyRead" : "notFound"); return; }
+        if (data.scheduled) { setScheduledAt(data.scheduled_at); setSecretTitle(data.title); setPhase("scheduled"); return; }
         setHasPassword(data.has_password);
         setSecretTitle(data.title);
         setPhase(data.has_password ? "passwordEntry" : "confirm");
@@ -56,6 +61,8 @@ export default function ReadView({ id }: { id: string }) {
       if (!res.ok) { setPhase("error"); return; }
       setRevealedTitle(data.title);
       setRevealedContent(data.content);
+      setAllowReply(data.allow_reply || false);
+      setOriginalId(id);
       const secs = Math.max(7, Math.min(120, Math.ceil(data.content.length / 8)));
       setCountdownTotal(secs);
       setCountdown(secs);
@@ -110,6 +117,41 @@ export default function ReadView({ id }: { id: string }) {
       </Link>
     </div>
   );
+
+  if (phase === "scheduled" && scheduledAt) {
+    const unlockDate = new Date(scheduledAt);
+    const now = new Date();
+    const diffMs = unlockDate.getTime() - now.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return (
+      <div className="animate-fade-up max-w-md mx-auto">
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-8 space-y-6 text-center">
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-2xl border border-brand-border bg-brand-muted flex items-center justify-center text-3xl">
+              🔒
+            </div>
+          </div>
+          {secretTitle && <p className="text-base font-semibold text-white">"{secretTitle}"</p>}
+          <div>
+            <p className="text-sm font-medium text-white">This secret unlocks in</p>
+            <p className="text-2xl font-bold text-brand mt-2 tabular-nums">
+              {diffDays > 0 && `${diffDays}d `}{diffHrs > 0 && `${diffHrs}h `}{diffMins > 0 && `${diffMins}m`}
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              {unlockDate.toLocaleString(undefined, {
+                month: "long", day: "numeric", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+              })}
+            </p>
+          </div>
+          <p className="text-xs text-slate-600">Come back when the timer runs out to reveal this secret.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === "error") return (
     <div className="flex flex-col items-center gap-5 py-20 text-center">
@@ -203,6 +245,7 @@ export default function ReadView({ id }: { id: string }) {
           <p className="text-xs text-slate-600">{t("read", "destroyNote")}</p>
         </div>
       </div>
+      {allowReply && originalId && <SecureReply originalId={originalId} />}
     </div>
   );
 

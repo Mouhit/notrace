@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("secrets")
-    .select("id, title, password_hash, expires_at, is_read")
+    .select("id, title, password_hash, expires_at, is_read, scheduled_at")
     .eq("id", id)
     .single();
 
@@ -24,10 +24,21 @@ export async function GET(req: NextRequest) {
 
   if (data.is_read) return NextResponse.json({ exists: false, already_read: true });
 
+  // Check if scheduled — return scheduled_at if not yet unlocked
+  if (data.scheduled_at && new Date(data.scheduled_at) > new Date()) {
+    return NextResponse.json({
+      exists: true,
+      scheduled: true,
+      scheduled_at: data.scheduled_at,
+      title: data.title,
+    });
+  }
+
   return NextResponse.json({
     exists: true,
     has_password: !!data.password_hash,
     title: data.title,
+    scheduled: false,
   });
 }
 
@@ -58,6 +69,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Already read" }, { status: 410 });
     }
 
+    // Check schedule lock
+    if (data.scheduled_at && new Date(data.scheduled_at) > new Date()) {
+      return NextResponse.json({ error: "Not yet unlocked", scheduled_at: data.scheduled_at }, { status: 423 });
+    }
+
     // Verify password
     if (data.password_hash) {
       if (!password) {
@@ -75,11 +91,15 @@ export async function POST(req: NextRequest) {
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq("id", id);
 
-    await supabase.rpc("increment_stat", { stat_key: "total_read" });
+    if (!data.is_reply) {
+      await supabase.rpc("increment_stat", { stat_key: "total_read" });
+    }
 
     return NextResponse.json({
       title: data.title,
       content: data.content,
+      allow_reply: !data.is_reply, // only allow reply on original secrets
+      original_id: id,
     });
   } catch (err) {
     console.error("Read error:", err);

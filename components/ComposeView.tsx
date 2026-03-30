@@ -8,6 +8,7 @@ import { useLang } from "@/lib/language";
 import Confetti from "./Confetti";
 import QRCodeDisplay from "./QRCodeDisplay";
 import SecretTemplates from "./SecretTemplates";
+import DateTimePicker from "./DateTimePicker";
 
 const MAX_CHARS = 5000;
 
@@ -161,6 +162,7 @@ export default function ComposeView() {
   const [content, setContent] = useState("");
   const [expiry, setExpiry] = useState<Expiry>("1hr");
   const [password, setPassword] = useState("");
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResultData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -188,7 +190,7 @@ export default function ComposeView() {
       const res = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, content: content.trim(), password: password || undefined, expiry }),
+        body: JSON.stringify({ title: title.trim() || undefined, content: content.trim(), password: password || undefined, expiry, scheduled_at: scheduledAt || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -289,6 +291,9 @@ export default function ComposeView() {
         onChange={(e) => setPassword(e.target.value)}
         className="w-full px-4 py-3 rounded-xl bg-surface-input border border-surface-border text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-border focus:ring-1 focus:ring-brand/20 transition-all"
       />
+
+      {/* Scheduled reveal */}
+      <DateTimePicker value={scheduledAt} onChange={setScheduledAt} />
 
       <div className="flex gap-3 pt-1">
         <button onClick={handleCreate} disabled={loading || !content.trim()}

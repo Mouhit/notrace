@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, content, password, expiry } = await req.json();
+    const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id } = await req.json();
 
     if (!content?.trim()) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
@@ -28,14 +28,19 @@ export async function POST(req: NextRequest) {
       title: title?.trim() || null,
       content: content.trim(),
       password_hash,
-      expiry,
+      expiry: expiry || "1hr",
       expires_at,
+      scheduled_at: scheduled_at || null,
+      is_reply: is_reply || false,
+      reply_to_id: reply_to_id || null,
     });
 
     if (error) throw error;
 
-    // Increment total created stat
-    await supabase.rpc("increment_stat", { stat_key: "total_created" });
+    // Only increment stat for original secrets, not replies
+    if (!is_reply) {
+      await supabase.rpc("increment_stat", { stat_key: "total_created" });
+    }
 
     return NextResponse.json({ id });
   } catch (err) {
