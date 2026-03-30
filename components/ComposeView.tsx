@@ -1,10 +1,13 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Shield, Eye, Loader2, Copy, Share2, CheckCircle2, ArrowLeft, MessageCircle } from "lucide-react";
+import { Shield, Eye, Loader2, Copy, Share2, CheckCircle2, ArrowLeft, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Expiry } from "@/types";
 import { expiryToSeconds, formatCountdown } from "@/lib/utils";
 import { useLang } from "@/lib/language";
+import Confetti from "./Confetti";
+import QRCodeDisplay from "./QRCodeDisplay";
+import SecretTemplates from "./SecretTemplates";
 
 const MAX_CHARS = 5000;
 
@@ -34,9 +37,15 @@ function useCountdown(totalSeconds: number | null) {
 function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew: () => void }) {
   const { t } = useLang();
   const [copied, setCopied] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(true);
   const expiryTotal = expiryToSeconds(result.expiry);
   const remaining = useCountdown(expiryTotal);
   const canShare = typeof navigator !== "undefined" && "share" in navigator;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowConfetti(false), 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(result.url);
@@ -54,71 +63,75 @@ function ResultPanel({ result, onCreateNew }: { result: ResultData; onCreateNew:
   };
 
   const handleWhatsApp = () => {
-    const text = encodeURIComponent(`🔐 I sent you a secret message on NoTrace. It will self-destruct after you read it:\n\n${result.url}`);
+    const text = encodeURIComponent(`🔐 I sent you a secret on NoTrace — it self-destructs after reading:\n\n${result.url}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
+  const handleTelegram = () => {
+    const text = encodeURIComponent(`🔐 Secret message for you (self-destructs after reading):\n${result.url}`);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(result.url)}&text=${text}`, "_blank");
+  };
+
   return (
-    <div className="animate-fade-up w-full space-y-5">
-      <div className="flex items-center gap-2 text-brand">
-        <CheckCircle2 className="w-4 h-4" />
-        <span className="text-sm font-semibold">{t("compose", "successBadge")}</span>
-      </div>
-
-      <div className="rounded-xl border border-surface-border bg-surface-card p-5 space-y-4">
-        {result.title && (
-          <p className="text-xs text-slate-500 uppercase tracking-widest">"{result.title}"</p>
-        )}
-        <div className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3 border border-surface-border">
-          <p className="flex-1 text-xs text-slate-300 break-all leading-relaxed">{result.url}</p>
+    <>
+      <Confetti active={showConfetti} />
+      <div className="animate-fade-up w-full space-y-5">
+        <div className="flex items-center gap-2 text-brand">
+          <CheckCircle2 className="w-4 h-4" />
+          <span className="text-sm font-semibold">{t("compose", "successBadge")}</span>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150"
-          >
-            {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? t("compose", "copied") : t("compose", "copyLink")}
-          </button>
-
-          {/* WhatsApp share button */}
-          <button
-            onClick={handleWhatsApp}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-800/40 bg-green-950/20 text-xs text-green-400 hover:border-green-600/60 hover:bg-green-950/40 transition-all duration-150"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            {t("compose", "whatsapp")}
-          </button>
-
-          {canShare && (
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              {t("compose", "share")}
-            </button>
+        <div className="rounded-xl border border-surface-border bg-surface-card p-5 space-y-4">
+          {result.title && (
+            <p className="text-xs text-slate-500 uppercase tracking-widest">"{result.title}"</p>
           )}
+          <div className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3 border border-surface-border">
+            <p className="flex-1 text-xs text-slate-300 break-all leading-relaxed">{result.url}</p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150">
+              {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? t("compose", "copied") : t("compose", "copyLink")}
+            </button>
+
+            <button onClick={handleWhatsApp} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-800/40 bg-green-950/20 text-xs text-green-400 hover:border-green-600/60 hover:bg-green-950/40 transition-all duration-150">
+              <MessageCircle className="w-3.5 h-3.5" />
+              {t("compose", "whatsapp")}
+            </button>
+
+            <button onClick={handleTelegram} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-800/40 bg-blue-950/20 text-xs text-blue-400 hover:border-blue-600/60 hover:bg-blue-950/40 transition-all duration-150">
+              <Send className="w-3.5 h-3.5" />
+              Telegram
+            </button>
+
+            {canShare && (
+              <button onClick={handleShare} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs text-slate-300 hover:border-brand-border hover:text-brand transition-all duration-150">
+                <Share2 className="w-3.5 h-3.5" />
+                {t("compose", "share")}
+              </button>
+            )}
+          </div>
+
+          {/* QR Code */}
+          <QRCodeDisplay url={result.url} />
         </div>
-      </div>
 
-      <div className="flex items-center gap-3 text-xs text-slate-500">
-        <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse-dot shrink-0" />
-        {remaining !== null
-          ? <span>{t("compose", "expiresIn")} <span className="text-slate-300">{formatCountdown(remaining)}</span></span>
-          : <span>{t("compose", "neverExpires")}</span>
-        }
-      </div>
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse-dot shrink-0" />
+          {remaining !== null
+            ? <span>{t("compose", "expiresIn")} <span className="text-slate-300">{formatCountdown(remaining)}</span></span>
+            : <span>{t("compose", "neverExpires")}</span>
+          }
+        </div>
 
-      <button
-        onClick={onCreateNew}
-        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors mt-2"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        {t("compose", "createAnother")}
-      </button>
-    </div>
+        <button onClick={onCreateNew} className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors mt-2">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          {t("compose", "createAnother")}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -206,6 +219,12 @@ export default function ComposeView() {
     if (text) setContent((prev) => (prev + text).slice(0, MAX_CHARS));
   };
 
+  const handleTemplateSelect = (tplTitle: string, tplContent: string) => {
+    setTitle(tplTitle);
+    setContent(tplContent);
+    textareaRef.current?.focus();
+  };
+
   if (stage === "result" && result) return <ResultPanel result={result} onCreateNew={() => { setStage("compose"); setResult(null); }} />;
   if (stage === "preview") return <PreviewPanel title={title} content={content} onBack={() => setStage("compose")} />;
 
@@ -213,6 +232,9 @@ export default function ComposeView() {
 
   return (
     <div className="animate-fade-up w-full space-y-4">
+      {/* Templates */}
+      <SecretTemplates onSelect={handleTemplateSelect} />
+
       <input
         type="text"
         placeholder={t("compose", "titlePlaceholder")}
@@ -247,10 +269,7 @@ export default function ComposeView() {
         <p className="text-xs text-slate-600 uppercase tracking-widest">{t("compose", "validity")}</p>
         <div className="flex gap-2 flex-wrap">
           {expiryOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setExpiry(opt.value)}
+            <button key={opt.value} type="button" onClick={() => setExpiry(opt.value)}
               className={`px-3.5 py-1.5 rounded-full text-xs border transition-all duration-150 ${
                 expiry === opt.value
                   ? "bg-brand-muted border-brand-border text-brand font-semibold"
@@ -272,9 +291,7 @@ export default function ComposeView() {
       />
 
       <div className="flex gap-3 pt-1">
-        <button
-          onClick={handleCreate}
-          disabled={loading || !content.trim()}
+        <button onClick={handleCreate} disabled={loading || !content.trim()}
           className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand text-surface font-bold text-sm hover:bg-brand-dim disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 glow-brand"
         >
           {loading
@@ -282,19 +299,14 @@ export default function ComposeView() {
             : <><Shield className="w-4 h-4" /> {t("compose", "createButton")}</>
           }
         </button>
-        <button
-          type="button"
-          onClick={() => setStage("preview")}
-          disabled={!content.trim()}
+        <button type="button" onClick={() => setStage("preview")} disabled={!content.trim()}
           className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-surface-border text-xs text-slate-400 hover:border-slate-600 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
           <Eye className="w-3.5 h-3.5" /> {t("compose", "preview")}
         </button>
       </div>
 
-      <p className="text-xs text-slate-700 text-center">
-        {t("compose", "shortcut")}
-      </p>
+      <p className="text-xs text-slate-700 text-center">{t("compose", "shortcut")}</p>
     </div>
   );
 }

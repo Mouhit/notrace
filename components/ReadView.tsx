@@ -4,6 +4,7 @@ import { AlertTriangle, Copy, Flame, Lock, Loader2, Shield } from "lucide-react"
 import { toast } from "sonner";
 import Link from "next/link";
 import { useLang } from "@/lib/language";
+import CountdownRing from "./CountdownRing";
 
 type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm" | "revealing" | "revealed" | "destroyed" | "error";
 
@@ -182,19 +183,13 @@ export default function ReadView({ id }: { id: string }) {
 
   if (phase === "revealed") return (
     <div className="animate-fade-up max-w-md mx-auto space-y-4">
-      <div className="h-0.5 bg-surface-card rounded-full overflow-hidden">
-        <div
-          className="h-full bg-brand rounded-full transition-all"
-          style={{ width: `${(countdown / countdownTotal) * 100}%`, transitionDuration: "1s", transitionTimingFunction: "linear" }}
-        />
-      </div>
       <div className="rounded-2xl border border-surface-border bg-surface-card overflow-hidden">
         <div className="px-5 pt-5 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <Shield className="w-3.5 h-3.5 text-brand" />
             <span>{t("read", "secretMessage")}</span>
           </div>
-          <span className="text-xs text-slate-600 tabular-nums">{countdown}s</span>
+          <CountdownRing seconds={countdown} total={countdownTotal} size={52} />
         </div>
         <div className="px-5 pb-5 space-y-4">
           {revealedTitle && <p className="text-sm font-semibold text-white">{revealedTitle}</p>}

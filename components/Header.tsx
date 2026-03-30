@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Shield } from "lucide-react";
 import { useLang } from "@/lib/language";
 import LanguageSwitcher from "./LanguageSwitcher";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { t } = useLang();
@@ -19,8 +20,8 @@ export default function Header() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2.5 mr-1">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-brand" />
@@ -29,6 +30,7 @@ export default function Header() {
               {t("nav", "tagline")}
             </span>
           </div>
+          <ThemeToggle />
           <LanguageSwitcher />
         </div>
       </div>
