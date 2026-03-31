@@ -43,24 +43,39 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-stone-900" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
+    <div className="landing-root min-h-screen" style={{ background: "#ffffff", color: "#1c1917", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
+        /* Override app dark theme globals for landing page */
+        .landing-root, .landing-root * { font-family: 'DM Sans', 'Helvetica Neue', sans-serif !important; }
+        .landing-root .mono { font-family: 'DM Mono', monospace !important; }
+        .landing-root .text-white { color: #ffffff !important; }
+        .landing-root .text-stone-900 { color: #1c1917 !important; }
+        .landing-root .text-stone-800 { color: #292524 !important; }
+        .landing-root .text-stone-600 { color: #57534e !important; }
+        .landing-root .text-stone-500 { color: #78716c !important; }
+        .landing-root .text-stone-400 { color: #a8a29e !important; }
+        .landing-root .text-stone-300 { color: #d6d3d1 !important; }
+        .landing-root .bg-white { background-color: #ffffff !important; }
+        .landing-root .bg-stone-50 { background-color: #fafaf8 !important; }
+        .landing-root .bg-stone-900 { background-color: #1c1917 !important; }
+        .landing-root .bg-stone-800 { background-color: #292524 !important; }
+        .landing-root .border-stone-100 { border-color: #f5f5f4 !important; }
+        .landing-root .border-stone-200 { border-color: #e7e5e4 !important; }
+        .landing-root .border-stone-700 { border-color: #44403c !important; }
         .feature-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .fade-up { animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) forwards; }
         .d1 { animation-delay: 0.05s; opacity: 0; }
         .d2 { animation-delay: 0.15s; opacity: 0; }
         .d3 { animation-delay: 0.25s; opacity: 0; }
         .d4 { animation-delay: 0.35s; opacity: 0; }
         .d5 { animation-delay: 0.45s; opacity: 0; }
-        .float { animation: float 4s ease-in-out infinite; }
-        .noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); }
         .hero-bg { background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 40%, #fefce8 100%); }
         .emerald-glow { box-shadow: 0 0 40px rgba(16,185,129,0.2); }
+        .noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); }
       `}</style>
 
       {/* ── Sticky Nav ── */}
@@ -191,7 +206,7 @@ export default function LandingPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white text-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
                   {s.emoji}
                 </div>
-                <span className="text-xs font-bold text-emerald-500 tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>STEP {s.step}</span>
+                <span className="text-xs font-bold text-emerald-500 tracking-widest" className="mono">STEP {s.step}</span>
                 <h3 className="text-base font-bold text-stone-800 mt-2 mb-2">{s.title}</h3>
                 <p className="text-sm text-stone-500 leading-relaxed">{s.desc}</p>
               </div>
@@ -258,9 +273,9 @@ export default function LandingPage() {
               <div className="w-3 h-3 rounded-full bg-red-500/70" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
               <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
-              <span className="text-xs text-stone-500 ml-2" style={{ fontFamily: "'DM Mono', monospace" }}>notrace — encryption flow</span>
+              <span className="text-xs text-stone-500 ml-2" className="mono">notrace — encryption flow</span>
             </div>
-            <div className="p-6 space-y-5" style={{ fontFamily: "'DM Mono', monospace" }}>
+            <div className="p-6 space-y-5" className="mono">
               {[
                 { label: "// your message", value: "Meet at 9pm tomorrow", color: "text-white", bg: "" },
                 { label: "// encrypted in browser", value: "7f3a9b2c8d1e4f6a49c2...", color: "text-emerald-400", bg: "" },

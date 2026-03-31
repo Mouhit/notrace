@@ -6,5 +6,14 @@ export const metadata = {
 };
 
 export default function Landing() {
-  return <LandingPage />;
+  return (
+    <div style={{
+      background: "#ffffff",
+      color: "#1c1917",
+      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+      minHeight: "100vh",
+    }}>
+      <LandingPage />
+    </div>
+  );
 }
