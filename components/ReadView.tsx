@@ -28,6 +28,7 @@ export default function ReadView({ id }: { id: string }) {
   const [replyActive, setReplyActive] = useState(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
+  // Peek on mount
   useEffect(() => {
     async function peek() {
       try {
@@ -43,13 +44,12 @@ export default function ReadView({ id }: { id: string }) {
     peek();
   }, [id]);
 
+  // Countdown timer — pauses when reply is active, waits on inactivity
   useEffect(() => {
     if (phase !== "revealed" || destroyed) return;
     if (countdown <= 0) {
-      // If reply box is open or user was active in last 5 mins — wait
       const inactiveSecs = (Date.now() - lastActivity) / 1000;
       if (replyActive || inactiveSecs < 300) {
-        // Check again in 10 seconds
         const timer = setTimeout(() => setCountdown((c) => c), 10000);
         return () => clearTimeout(timer);
       }
@@ -58,11 +58,24 @@ export default function ReadView({ id }: { id: string }) {
       return;
     }
     const timer = setTimeout(() => {
-      // Pause countdown if reply box is open
       if (!replyActive) setCountdown((c) => c - 1);
     }, 1000);
     return () => clearTimeout(timer);
   }, [phase, countdown, destroyed, replyActive, lastActivity]);
+
+  // Track user activity to reset 5-min inactivity timer
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const handler = () => setLastActivity(Date.now());
+    window.addEventListener("mousemove", handler);
+    window.addEventListener("keydown", handler);
+    window.addEventListener("touchstart", handler);
+    return () => {
+      window.removeEventListener("mousemove", handler);
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("touchstart", handler);
+    };
+  }, [phase]);
 
   const handleReveal = async (pw?: string) => {
     setPhase("revealing");
@@ -77,8 +90,7 @@ export default function ReadView({ id }: { id: string }) {
       if (res.status === 410) { setPhase("alreadyRead"); return; }
       if (!res.ok) { setPhase("error"); return; }
 
-      // ── Zero-knowledge decryption ──
-      // Read AES key from URL fragment — never sent to server
+      // Zero-knowledge decryption — key is in URL fragment, never sent to server
       let finalContent = data.content;
       let finalTitle = data.title;
       const keyString = extractKeyFromUrl();
@@ -105,19 +117,7 @@ export default function ReadView({ id }: { id: string }) {
     } catch { setPhase("error"); }
   };
 
-  // Track user activity — reset lastActivity on any interaction
-  useEffect(() => {
-    if (phase !== "revealed") return;
-    const handler = () => setLastActivity(Date.now());
-    window.addEventListener("mousemove", handler);
-    window.addEventListener("keydown", handler);
-    window.addEventListener("touchstart", handler);
-    return () => {
-      window.removeEventListener("mousemove", handler);
-      window.removeEventListener("keydown", handler);
-      window.removeEventListener("touchstart", handler);
-    };
-  }, [phase]);
+  const handlePasswordSubmit = () => {
     if (!passwordInput.trim()) return;
     setPasswordError("");
     handleReveal(passwordInput);
@@ -172,7 +172,6 @@ export default function ReadView({ id }: { id: string }) {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
     return (
       <div className="animate-fade-up max-w-md mx-auto">
         <div className="rounded-2xl border border-surface-border bg-surface-card p-8 space-y-6 text-center">
