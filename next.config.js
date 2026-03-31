@@ -22,7 +22,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js needs these
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: https://api.qrserver.com",
               "connect-src 'self' https://*.supabase.co https://api.telegram.org https://api.qrserver.com",
               "frame-ancestors 'none'",
