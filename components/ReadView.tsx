@@ -26,7 +26,6 @@ export default function ReadView({ id }: { id: string }) {
   const [allowReply, setAllowReply] = useState(false);
   const [originalId, setOriginalId] = useState<string | null>(null);
   const [replyActive, setReplyActive] = useState(false);
-  const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
   // Peek on mount
   useEffect(() => {
@@ -44,38 +43,28 @@ export default function ReadView({ id }: { id: string }) {
     peek();
   }, [id]);
 
-  // Countdown timer — pauses when reply is active, waits on inactivity
+  // Countdown timer — pauses when reply is active
   useEffect(() => {
     if (phase !== "revealed" || destroyed) return;
+
     if (countdown <= 0) {
-      const inactiveSecs = (Date.now() - lastActivity) / 1000;
-      if (replyActive || inactiveSecs < 300) {
-        const timer = setTimeout(() => setCountdown((c) => c), 10000);
+      // Destroy immediately when timer hits 0
+      // Only wait if reply box is actively open
+      if (replyActive) {
+        const timer = setTimeout(() => setCountdown((c) => c), 5000);
         return () => clearTimeout(timer);
       }
       setDestroyed(true);
       setPhase("destroyed");
       return;
     }
+
+    // Pause countdown only if reply box is open
     const timer = setTimeout(() => {
       if (!replyActive) setCountdown((c) => c - 1);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [phase, countdown, destroyed, replyActive, lastActivity]);
-
-  // Track user activity to reset 5-min inactivity timer
-  useEffect(() => {
-    if (phase !== "revealed") return;
-    const handler = () => setLastActivity(Date.now());
-    window.addEventListener("mousemove", handler);
-    window.addEventListener("keydown", handler);
-    window.addEventListener("touchstart", handler);
-    return () => {
-      window.removeEventListener("mousemove", handler);
-      window.removeEventListener("keydown", handler);
-      window.removeEventListener("touchstart", handler);
-    };
-  }, [phase]);
+  }, [phase, countdown, destroyed, replyActive]);
 
   const handleReveal = async (pw?: string) => {
     setPhase("revealing");
@@ -296,7 +285,6 @@ export default function ReadView({ id }: { id: string }) {
           originalId={originalId}
           onActiveChange={(active) => {
             setReplyActive(active);
-            setLastActivity(Date.now());
           }}
         />
       )}
