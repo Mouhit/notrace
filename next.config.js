@@ -24,7 +24,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https://api.qrserver.com",
-              "connect-src 'self' https://*.supabase.co https://api.telegram.org",
+              "connect-src 'self' https://*.supabase.co https://api.telegram.org https://api.qrserver.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },

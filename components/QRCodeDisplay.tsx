@@ -1,6 +1,6 @@
 "use client";
-import { useRef } from "react";
-import { Download, Share2 } from "lucide-react";
+import { useState } from "react";
+import { Download, Share2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface QRCodeDisplayProps {
@@ -9,13 +9,19 @@ interface QRCodeDisplayProps {
 }
 
 export default function QRCodeDisplay({ url, size = 160 }: QRCodeDisplayProps) {
-  const imgRef = useRef<HTMLImageElement>(null);
+  const [imgError, setImgError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&bgcolor=12151c&color=00e5a0&qzone=2`;
+  // encodeURIComponent fully encodes the URL including the # fragment
+  // This is critical — the # contains the AES decryption key
+  // Without full encoding the QR API truncates the URL at the # symbol
+  const safeUrl = encodeURIComponent(url);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${safeUrl}&bgcolor=12151c&color=00e5a0&qzone=2&format=png`;
 
   const getBlob = async (): Promise<Blob | null> => {
     try {
       const res = await fetch(qrUrl);
+      if (!res.ok) return null;
       return await res.blob();
     } catch { return null; }
   };
@@ -49,7 +55,6 @@ export default function QRCodeDisplay({ url, size = 160 }: QRCodeDisplayProps) {
     if (navigator.share && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: "NoTrace Secret Link", text: url });
     } else {
-      // Fallback — download
       await handleDownload();
     }
   };
@@ -58,16 +63,45 @@ export default function QRCodeDisplay({ url, size = 160 }: QRCodeDisplayProps) {
     <div className="space-y-3">
       <p className="text-xs text-slate-600 uppercase tracking-widest">QR Code</p>
 
-      {/* Always visible QR */}
       <div className="inline-block p-3 rounded-xl bg-surface-card border border-surface-border">
-        <img
-          ref={imgRef}
-          src={qrUrl}
-          alt="QR Code"
-          width={size}
-          height={size}
-          className="rounded-lg"
-        />
+        {/* Loading spinner */}
+        {loading && !imgError && (
+          <div
+            className="flex items-center justify-center rounded-lg bg-surface"
+            style={{ width: size, height: size }}
+          >
+            <Loader2 className="w-5 h-5 animate-spin text-brand" />
+          </div>
+        )}
+
+        {/* QR image */}
+        {!imgError && (
+          <img
+            src={qrUrl}
+            alt="QR Code"
+            width={size}
+            height={size}
+            className={`rounded-lg ${loading ? "hidden" : "block"}`}
+            onLoad={() => setLoading(false)}
+            onError={() => { setImgError(true); setLoading(false); }}
+          />
+        )}
+
+        {/* Error state */}
+        {imgError && (
+          <div
+            className="flex flex-col items-center justify-center rounded-lg bg-surface gap-2"
+            style={{ width: size, height: size }}
+          >
+            <p className="text-xs text-slate-500 text-center px-2">QR generation failed</p>
+            <button
+              onClick={() => { setImgError(false); setLoading(true); }}
+              className="text-xs text-brand hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Action buttons */}
