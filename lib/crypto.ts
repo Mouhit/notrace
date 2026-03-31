@@ -41,7 +41,7 @@ export async function importEncryptionKey(keyString: string): Promise<CryptoKey>
     "raw",
     rawKey.buffer as ArrayBuffer,
     { name: "AES-GCM", length: 256 },
-    false,      // not extractable on recipient side — security best practice
+    false,
     ["decrypt"]
   );
 }
