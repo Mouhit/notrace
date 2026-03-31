@@ -97,7 +97,7 @@ export default function LandingPage() {
           {/* Company badge */}
           <div className="fade-up d1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-stone-200 shadow-sm text-xs font-medium text-stone-600">
             <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-            By <span className="text-emerald-600 font-semibold">Engage Ad</span> · MSME · GST Registered · Lucknow, India
+            By <span className="text-emerald-600 font-semibold">Engage Ad</span> · MSME Est. 2016 · GST 2024 · Lucknow, India
           </div>
 
           {/* Headline */}
@@ -379,8 +379,9 @@ export default function LandingPage() {
                   <Building2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-stone-300 font-semibold">Engage Ad</p>
-                    <p className="text-xs">MSME Company · Since 2016</p>
+                    <p className="text-xs">MSME Registered · Est. 2016</p>
                     <p className="text-xs">Lucknow, Uttar Pradesh, India</p>
+                    <p className="text-xs">GST Registered · Since 2024</p>
                     <p className="text-xs mt-1">GST: 09GVRPK4451F2Z3</p>
                   </div>
                 </div>
