@@ -206,15 +206,15 @@ export default function ComposeView() {
       // ── Zero-knowledge AES-256-GCM encryption ──
       // Generate a fresh random key — never sent to server
       const { key, keyString } = await generateEncryptionKey();
-      // Encrypt the secret locally in the browser
+      // Encrypt content AND title locally — server never sees plaintext
       const encryptedContent = await encryptSecret(content.trim(), key);
+      const encryptedTitle = title.trim() ? await encryptSecret(title.trim(), key) : undefined;
 
       const res = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Only encrypted ciphertext is sent — server never sees plaintext
         body: JSON.stringify({
-          title: title.trim() || undefined,
+          title: encryptedTitle,
           content: encryptedContent,
           password: password || undefined,
           expiry,

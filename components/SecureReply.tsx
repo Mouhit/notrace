@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Send, Loader2, CheckCircle2, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { generateEncryptionKey, encryptSecret, buildShareUrl } from "@/lib/crypto";
 
 const MAX_CHARS = 5000;
 
@@ -15,8 +16,8 @@ export default function SecureReply({ originalId, onActiveChange }: SecureReplyP
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [replyId, setReplyId] = useState<string | null>(null);
+  const [replyUrl, setReplyUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  // Use ref to prevent stale closure issues that cause vanishing text
   const contentRef = useRef(content);
 
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -30,25 +31,33 @@ export default function SecureReply({ originalId, onActiveChange }: SecureReplyP
     if (!currentContent.trim()) return;
     setLoading(true);
     try {
+      // ── E2E encrypt the reply — server never sees plaintext ──
+      const { key, keyString } = await generateEncryptionKey();
+      const encryptedContent = await encryptSecret(currentContent.trim(), key);
+
       const res = await fetch("/api/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: currentContent.trim(), reply_to_id: originalId }),
+        body: JSON.stringify({ content: encryptedContent, reply_to_id: originalId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // Build reply URL with decryption key in fragment
+      const baseUrl = `${window.location.origin}/s/${data.reply_id}`;
+      const url = buildShareUrl(baseUrl, keyString);
+
       setReplyId(data.reply_id);
+      setReplyUrl(url);
       setContent("");
       contentRef.current = "";
-      onActiveChange?.(false); // reply sent — destroy timer can resume
+      onActiveChange?.(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to send reply");
     } finally {
       setLoading(false);
     }
   };
-
-  const replyUrl = replyId ? `${window.location.origin}/s/${replyId}` : null;
 
   const handleCopyReplyLink = async () => {
     if (!replyUrl) return;
