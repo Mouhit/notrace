@@ -220,7 +220,6 @@ export default function ComposeView() {
           expiry,
           scheduled_at: scheduledAt || undefined,
           collection_id: collectionId || undefined,
-          encrypted: true,
         }),
       });
       const data = await res.json();

@@ -154,13 +154,3 @@ function base64urlToBuffer(base64url: string): Uint8Array {
     .padEnd(base64url.length + ((4 - (base64url.length % 4)) % 4), "=");
   return base64ToBuffer(base64);
 }
-
-// ─── Detection ───────────────────────────────────────────────────────────────
-
-/**
- * Detect if a content string is AES-256-GCM encrypted (base64, >20 chars).
- * Used to decide whether to attempt decryption on the read page.
- */
-export function isEncrypted(content: string): boolean {
-  return content.length > 20 && /^[A-Za-z0-9+/]+=*$/.test(content);
-}

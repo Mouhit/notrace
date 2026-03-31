@@ -1,11 +1,6 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { Expiry } from "@/types";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
+// hashPassword — used in create/route.ts (server-side)
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -20,15 +15,6 @@ export function expiryToSeconds(expiry: Expiry): number | null {
     case "1hr": return 60 * 60;
     case "24hr": return 24 * 60 * 60;
     case "never": return null;
-  }
-}
-
-export function expiryLabel(expiry: Expiry): string {
-  switch (expiry) {
-    case "5min": return "5 minutes";
-    case "1hr": return "1 hour";
-    case "24hr": return "24 hours";
-    case "never": return "No expiry";
   }
 }
 

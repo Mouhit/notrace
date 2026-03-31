@@ -13,7 +13,6 @@ type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm
 export default function ReadView({ id }: { id: string }) {
   const { t } = useLang();
   const [phase, setPhase] = useState<Phase>("loading");
-  const [hasPassword, setHasPassword] = useState(false);
   const [secretTitle, setSecretTitle] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -35,7 +34,6 @@ export default function ReadView({ id }: { id: string }) {
         const data = await res.json();
         if (!data.exists) { setPhase(data.already_read ? "alreadyRead" : "notFound"); return; }
         if (data.scheduled) { setScheduledAt(data.scheduled_at); setSecretTitle(data.title); setPhase("scheduled"); return; }
-        setHasPassword(data.has_password);
         setSecretTitle(data.title);
         setPhase(data.has_password ? "passwordEntry" : "confirm");
       } catch { setPhase("error"); }

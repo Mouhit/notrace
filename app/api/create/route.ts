@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id, collection_id, encrypted } = body;
+    const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id, collection_id } = body;
 
     if (!content?.trim()) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
