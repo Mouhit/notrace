@@ -1,214 +1,277 @@
 "use client";
-import { useState } from "react";
+import { useState, CSSProperties } from "react";
 import Link from "next/link";
-import {
-  Shield, Lock, Flame, Clock, MessageCircle,
-  FolderOpen, Globe, Smartphone, ChevronDown,
-  ChevronUp, ArrowRight, Eye, Server, Zap, Mail,
-  CheckCircle2, Building2
-} from "lucide-react";
 
-const FAQS = [
-  { q: "Can NoTrace read my secrets?", a: "No. Your message is encrypted in your browser before it's sent. The decryption key lives only in the URL fragment — a part of the URL that browsers never transmit to servers. We store only unreadable ciphertext." },
-  { q: "What happens after someone reads my secret?", a: "The secret is immediately marked as read and permanently deleted from our database. It cannot be recovered, re-opened, or accessed again by anyone — including us." },
-  { q: "Do I need an account?", a: "No. NoTrace requires zero accounts, zero sign-ups, and zero personal information. Completely anonymous by design." },
-  { q: "What if the link expires before the recipient opens it?", a: "The secret is automatically deleted when it expires. You can choose 5 minutes, 1 hour, 24 hours, or no expiry when creating the link." },
-  { q: "Is NoTrace free?", a: "Yes. NoTrace is completely free with no limits, no ads, and no premium tier." },
-  { q: "How is this different from WhatsApp or Signal?", a: "WhatsApp and Signal require both parties to have accounts and be contacts. NoTrace works with just a link — send to anyone, anywhere, no app required. And unlike WhatsApp, your messages truly disappear — not just visually, but permanently from our servers." },
-];
+// ─── Tokens ────────────────────────────────────────────────────────────────
+const C = {
+  white: "#ffffff",
+  bg: "#fafaf8",
+  bgHero: "linear-gradient(135deg, #f0fdf4 0%, #ffffff 45%, #fefce8 100%)",
+  dark: "#1c1917",
+  dark2: "#292524",
+  dark3: "#44403c",
+  mid: "#57534e",
+  muted: "#78716c",
+  muted2: "#a8a29e",
+  muted3: "#d6d3d1",
+  border: "#e7e5e4",
+  border2: "#f5f5f4",
+  emerald: "#10b981",
+  emeraldDark: "#059669",
+  emeraldLight: "#ecfdf5",
+  emeraldBorder: "#a7f3d0",
+  stone800: "#292524",
+  stone700: "#44403c",
+  stone600: "#57534e",
+};
 
-const FEATURES = [
-  { icon: "🔥", title: "Burn After Read", desc: "Permanently destroyed after the first view. No recovery, no second chances." },
-  { icon: "🔐", title: "AES-256 Encrypted", desc: "Military-grade encryption in your browser. Server never sees plaintext." },
-  { icon: "🕵️", title: "Zero-Knowledge", desc: "We literally cannot read your secrets. The key never touches our servers." },
-  { icon: "⏰", title: "Scheduled Secrets", desc: "Set a reveal date. Perfect for birthday messages or timed announcements." },
-  { icon: "💬", title: "Secure Reply", desc: "Recipients can send one encrypted reply back. Also burn-after-read." },
-  { icon: "📁", title: "Collections", desc: "Organise secrets by project or team. Track read/unread status instantly." },
-  { icon: "🌍", title: "15 Languages", desc: "English, Hindi, Arabic, Spanish, French, German, Japanese and more." },
-  { icon: "📱", title: "Install as App", desc: "Works as a PWA. Install on mobile or desktop. Works fully offline." },
-];
+const F = {
+  sans: "'DM Sans', 'Helvetica Neue', Arial, sans-serif",
+  mono: "'DM Mono', 'Fira Code', monospace",
+};
 
+// ─── Reusable style helpers ─────────────────────────────────────────────────
+const s = {
+  section: (bg = C.white): CSSProperties => ({
+    padding: "80px 24px",
+    background: bg,
+    fontFamily: F.sans,
+  }),
+  container: (maxW = 1100): CSSProperties => ({
+    maxWidth: maxW,
+    margin: "0 auto",
+  }),
+  label: (): CSSProperties => ({
+    fontSize: 11,
+    fontWeight: 700,
+    color: C.emerald,
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    marginBottom: 12,
+    fontFamily: F.sans,
+  }),
+  h2: (light = false): CSSProperties => ({
+    fontSize: "clamp(28px, 4vw, 38px)",
+    fontWeight: 800,
+    color: light ? C.white : C.dark,
+    lineHeight: 1.15,
+    margin: "0 0 16px",
+    fontFamily: F.sans,
+  }),
+  body: (light = false): CSSProperties => ({
+    fontSize: 15,
+    color: light ? "#a8a29e" : C.muted,
+    lineHeight: 1.7,
+    fontFamily: F.sans,
+  }),
+  card: (): CSSProperties => ({
+    background: C.white,
+    border: `1px solid ${C.border}`,
+    borderRadius: 16,
+    padding: 24,
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+    fontFamily: F.sans,
+  }),
+  btn: (variant: "primary" | "outline" = "primary"): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "14px 28px",
+    borderRadius: 14,
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: "pointer",
+    textDecoration: "none",
+    border: "none",
+    fontFamily: F.sans,
+    transition: "all 0.15s ease",
+    ...(variant === "primary"
+      ? { background: C.emerald, color: C.white, boxShadow: "0 4px 20px rgba(16,185,129,0.3)" }
+      : { background: "transparent", color: C.mid, border: `2px solid ${C.border}` }
+    ),
+  }),
+};
+
+// ─── FAQ Item ───────────────────────────────────────────────────────────────
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-stone-100 last:border-0 cursor-pointer" onClick={() => setOpen(!open)}>
-      <button className="w-full flex items-center justify-between py-5 text-left gap-4">
-        <span className="text-sm font-semibold text-stone-800">{q}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-stone-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-stone-400 shrink-0" />}
-      </button>
-      {open && <p className="text-sm text-stone-500 pb-5 leading-relaxed">{a}</p>}
+    <div
+      onClick={() => setOpen(!open)}
+      style={{ borderBottom: `1px solid ${C.border2}`, cursor: "pointer", fontFamily: F.sans }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 16 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: C.dark, fontFamily: F.sans }}>{q}</span>
+        <span style={{ color: C.muted2, fontSize: 18, flexShrink: 0 }}>{open ? "−" : "+"}</span>
+      </div>
+      {open && <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, paddingBottom: 16, margin: 0, fontFamily: F.sans }}>{a}</p>}
     </div>
   );
 }
 
+// ─── Main ───────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   return (
-    <div className="landing-root min-h-screen" style={{ background: "#ffffff", color: "#1c1917", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-        /* Override app dark theme globals for landing page */
-        .landing-root, .landing-root * { font-family: 'DM Sans', 'Helvetica Neue', sans-serif !important; }
-        .landing-root .mono { font-family: 'DM Mono', monospace !important; }
-        .landing-root .text-white { color: #ffffff !important; }
-        .landing-root .text-stone-900 { color: #1c1917 !important; }
-        .landing-root .text-stone-800 { color: #292524 !important; }
-        .landing-root .text-stone-600 { color: #57534e !important; }
-        .landing-root .text-stone-500 { color: #78716c !important; }
-        .landing-root .text-stone-400 { color: #a8a29e !important; }
-        .landing-root .text-stone-300 { color: #d6d3d1 !important; }
-        .landing-root .bg-white { background-color: #ffffff !important; }
-        .landing-root .bg-stone-50 { background-color: #fafaf8 !important; }
-        .landing-root .bg-stone-900 { background-color: #1c1917 !important; }
-        .landing-root .bg-stone-800 { background-color: #292524 !important; }
-        .landing-root .border-stone-100 { border-color: #f5f5f4 !important; }
-        .landing-root .border-stone-200 { border-color: #e7e5e4 !important; }
-        .landing-root .border-stone-700 { border-color: #44403c !important; }
-        .feature-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-up { animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .d1 { animation-delay: 0.05s; opacity: 0; }
-        .d2 { animation-delay: 0.15s; opacity: 0; }
-        .d3 { animation-delay: 0.25s; opacity: 0; }
-        .d4 { animation-delay: 0.35s; opacity: 0; }
-        .d5 { animation-delay: 0.45s; opacity: 0; }
-        .hero-bg { background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 40%, #fefce8 100%); }
-        .emerald-glow { box-shadow: 0 0 40px rgba(16,185,129,0.2); }
-        .noise { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); }
-      `}</style>
+    <div style={{ fontFamily: F.sans, background: C.white, color: C.dark, minHeight: "100vh" }}>
 
-      {/* ── Sticky Nav ── */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-stone-100">
-        <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-sm">
-              <Shield className="w-4 h-4 text-white" />
+      {/* Google Fonts */}
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Mono:wght@400;500&display=swap');`}</style>
+
+      {/* ── Nav ── */}
+      <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border2}`, fontFamily: F.sans }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.emerald, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: C.white, fontSize: 16 }}>🔐</span>
             </div>
-            <span className="font-bold text-base">No<span className="text-emerald-500">Trace</span></span>
+            <span style={{ fontWeight: 800, fontSize: 16, color: C.dark, fontFamily: F.sans }}>
+              No<span style={{ color: C.emerald }}>Trace</span>
+            </span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-stone-500">
-            <a href="#how" className="hover:text-stone-800 transition-colors">How it works</a>
-            <a href="#features" className="hover:text-stone-800 transition-colors">Features</a>
-            <a href="#security" className="hover:text-stone-800 transition-colors">Security</a>
-            <a href="#faq" className="hover:text-stone-800 transition-colors">FAQ</a>
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ display: "flex", gap: 24 }} className="hide-mobile">
+              {["#how", "#features", "#security", "#faq"].map((href, i) => (
+                <a key={i} href={href} style={{ fontSize: 14, color: C.muted, textDecoration: "none", fontFamily: F.sans }}>
+                  {["How it works", "Features", "Security", "FAQ"][i]}
+                </a>
+              ))}
+            </div>
+            <Link href="/" style={s.btn("primary") as any}>
+              Try it now — Free →
+            </Link>
           </div>
-          <Link href="/"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 active:scale-95 transition-all shadow-sm"
-          >
-            Create Secure Message <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
         </div>
       </nav>
 
       {/* ── Hero ── */}
-      <section className="hero-bg noise relative overflow-hidden pt-20 pb-28 px-6">
-        {/* Decorative blobs */}
-        <div className="absolute top-10 right-10 w-72 h-72 rounded-full bg-emerald-100/60 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-96 h-64 rounded-full bg-yellow-50/80 blur-3xl pointer-events-none" />
+      <section style={{ background: C.bgHero, padding: "80px 24px 100px", fontFamily: F.sans, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -80, right: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(16,185,129,0.06)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -60, left: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(253,224,71,0.08)", pointerEvents: "none" }} />
 
-        <div className="max-w-4xl mx-auto text-center relative z-10 space-y-7">
+        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
 
           {/* Company badge */}
-          <div className="fade-up d1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-stone-200 shadow-sm text-xs font-medium text-stone-600">
-            <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-            By <span className="text-emerald-600 font-semibold">Engage Ad</span> · MSME Est. 2016 · GST 2024 · Lucknow, India
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 999, background: C.white, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", fontSize: 12, color: C.mid, marginBottom: 28, fontFamily: F.sans }}>
+            🏢 By <strong style={{ color: C.emerald }}>Engage Ad</strong> · MSME Est. 2016 · GST 2024 · Lucknow, India
           </div>
 
-          {/* Headline */}
-          <h1 className="fade-up d2 text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-stone-900 leading-[1.05]">
-            Send messages that<br />
-            <span className="relative inline-block">
-              <span className="text-emerald-500">disappear forever.</span>
-              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" fill="none">
-                <path d="M2 10 Q75 2 150 8 Q225 14 298 6" stroke="#10b981" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.4"/>
-              </svg>
-            </span>
+          {/* Headline — shocking, not safe */}
+          <h1 style={{ fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 900, color: C.dark, lineHeight: 1.06, margin: "0 0 20px", fontFamily: F.sans }}>
+            This message will<br />
+            <span style={{ color: C.emerald }}>self-destruct</span> after<br />
+            you read it.
           </h1>
 
+          {/* Curiosity line — THE hook */}
+          <p style={{ fontSize: 20, fontWeight: 700, color: C.dark, margin: "0 auto 10px", maxWidth: 480, fontFamily: F.sans }}>
+            Even we can't read your messages.
+          </p>
+
           {/* Subhead */}
-          <p className="fade-up d3 text-xl text-stone-500 max-w-xl mx-auto leading-relaxed">
-            No login. No tracking. No history.<br />
-            <span className="italic text-stone-400">Like WhatsApp… but messages don't stay.</span>
+          <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.6, maxWidth: 460, margin: "0 auto 10px", fontFamily: F.sans }}>
+            No login. No tracking. No history.
+          </p>
+          <p style={{ fontSize: 15, color: C.muted2, fontStyle: "italic", marginBottom: 40, fontFamily: F.sans }}>
+            Like WhatsApp… but messages don't stay.
           </p>
 
-          {/* CTA */}
-          <div className="fade-up d4 flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link href="/"
-              className="flex items-center gap-2 px-7 py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base hover:bg-emerald-600 active:scale-95 transition-all shadow-lg emerald-glow"
-            >
-              <Shield className="w-5 h-5" />
-              Create Secure Message — Free
+          {/* CTA — dominant, impossible to miss */}
+          <div style={{ marginBottom: 20 }}>
+            <Link href="/" style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              padding: "18px 40px", borderRadius: 16,
+              background: C.emerald, color: C.white,
+              fontWeight: 900, fontSize: 18,
+              textDecoration: "none", fontFamily: F.sans,
+              boxShadow: "0 8px 32px rgba(16,185,129,0.4)",
+              letterSpacing: "-0.01em",
+            } as any}>
+              🔐 Try it now — It's Free
             </Link>
-            <a href="#how"
-              className="flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-stone-200 text-stone-600 font-semibold hover:border-emerald-300 hover:text-emerald-600 transition-all text-base"
-            >
-              See how it works
-            </a>
           </div>
-
-          {/* Emotional line */}
-          <p className="fade-up d5 text-sm text-stone-400 italic pt-2">
-            "Not everything should stay forever."
+          <p style={{ fontSize: 13, color: C.muted2, marginBottom: 40, fontFamily: F.sans }}>
+            No sign-up. No credit card. Just a link.
           </p>
+
+          {/* ── Visual Demo — message → burn animation ── */}
+          <div style={{ maxWidth: 480, margin: "0 auto 36px", borderRadius: 20, overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 8px 40px rgba(0,0,0,0.1)", background: C.white }}>
+            <style>{`
+              @keyframes msgAppear { 0%{opacity:0;transform:translateY(10px)} 10%{opacity:1;transform:translateY(0)} 70%{opacity:1} 85%{opacity:0;transform:scale(0.95)} 100%{opacity:0} }
+              @keyframes burnAppear { 0%{opacity:0} 80%{opacity:0} 90%{opacity:1} 100%{opacity:1} }
+              @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.7} 30%{opacity:0.9} 70%{opacity:0.8} }
+              .demo-msg { animation: msgAppear 5s ease-in-out infinite; }
+              .demo-burn { animation: burnAppear 5s ease-in-out infinite; }
+              .demo-flame { animation: flicker 0.8s ease-in-out infinite; }
+            `}</style>
+
+            {/* Demo header */}
+            <div style={{ background: "#f9fafb", borderBottom: `1px solid ${C.border2}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", opacity: 0.6 }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b", opacity: 0.6 }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", opacity: 0.6 }} />
+              <span style={{ fontSize: 12, color: C.muted2, marginLeft: 8, fontFamily: F.mono }}>notrace.co.in/s/xK9mPq...</span>
+            </div>
+
+            {/* Demo content */}
+            <div style={{ padding: 28, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+              {/* Message state */}
+              <div className="demo-msg" style={{ position: "absolute", textAlign: "center", width: "100%" }}>
+                <div style={{ display: "inline-block", background: "#f0fdf4", border: `1px solid ${C.emeraldBorder}`, borderRadius: 12, padding: "14px 20px", marginBottom: 12 }}>
+                  <p style={{ fontSize: 15, color: C.dark, margin: 0, fontFamily: F.sans, fontWeight: 500 }}>🔑 My bank password is: <strong>Tr0ub4dor</strong></p>
+                </div>
+                <p style={{ fontSize: 12, color: C.muted2, margin: 0, fontFamily: F.sans }}>Reading... secret will be destroyed</p>
+              </div>
+
+              {/* Burned state */}
+              <div className="demo-burn" style={{ position: "absolute", textAlign: "center", width: "100%" }}>
+                <div className="demo-flame" style={{ fontSize: 48, marginBottom: 8 }}>🔥</div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "#dc2626", margin: "0 0 4px", fontFamily: F.sans }}>Secret permanently destroyed.</p>
+                <p style={{ fontSize: 12, color: C.muted2, margin: 0, fontFamily: F.sans }}>It cannot be recovered or accessed again.</p>
+              </div>
+            </div>
+          </div>
 
           {/* Trust pills */}
-          <div className="fade-up d5 flex flex-wrap justify-center gap-3 pt-4">
-            {[
-              { icon: <Lock className="w-3.5 h-3.5" />, label: "AES-256-GCM" },
-              { icon: <Eye className="w-3.5 h-3.5" />, label: "Zero-knowledge" },
-              { icon: <Flame className="w-3.5 h-3.5" />, label: "Burn-after-read" },
-              { icon: <Zap className="w-3.5 h-3.5" />, label: "No accounts ever" },
-              { icon: <Globe className="w-3.5 h-3.5" />, label: "15 languages" },
-            ].map((t, i) => (
-              <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-stone-200 text-xs font-medium text-stone-600 shadow-sm">
-                <span className="text-emerald-500">{t.icon}</span>
-                {t.label}
-              </span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            {["🔒 AES-256-GCM", "👁 Zero-knowledge", "🔥 Burn-after-read", "⚡ No accounts ever", "🌍 15 languages"].map((t) => (
+              <span key={t} style={{ padding: "6px 14px", borderRadius: 999, background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.mid, fontFamily: F.sans, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>{t}</span>
             ))}
           </div>
+
+          <p style={{ fontSize: 14, color: C.muted2, fontStyle: "italic", marginTop: 24, fontFamily: F.sans }}>
+            "Not everything should stay forever."
+          </p>
         </div>
       </section>
 
       {/* ── Comparison bar ── */}
-      <section className="bg-stone-900 py-5 px-6">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-12 text-sm">
-          <div className="flex items-center gap-3 text-stone-400">
-            <span className="text-red-400 text-lg">✕</span>
-            <span>WhatsApp stores your chats forever</span>
-          </div>
-          <div className="hidden sm:block w-px h-6 bg-stone-700" />
-          <div className="flex items-center gap-3 text-emerald-400 font-semibold">
-            <span className="text-emerald-400 text-lg">✓</span>
-            <span>NoTrace — messages vanish after reading</span>
-          </div>
+      <div style={{ background: C.dark, padding: "16px 24px", fontFamily: F.sans }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 24, fontSize: 14 }}>
+          <span style={{ color: "#6b7280" }}>✕ WhatsApp stores your chats forever</span>
+          <span style={{ color: C.muted3 }}>vs</span>
+          <span style={{ color: C.emerald, fontWeight: 700 }}>✓ NoTrace — messages vanish after reading</span>
         </div>
-      </section>
+      </div>
 
       {/* ── How it works ── */}
-      <section id="how" className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-3">How it works</p>
-            <h2 className="text-4xl font-extrabold text-stone-900">Three steps. Total privacy.</h2>
-            <p className="text-stone-500 mt-3 max-w-md mx-auto">No technical knowledge needed. If you can send a WhatsApp message, you can use NoTrace.</p>
+      <section id="how" style={s.section(C.white)}>
+        <div style={s.container()}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <p style={s.label()}>How it works</p>
+            <h2 style={s.h2()}>Three steps. Total privacy.</h2>
+            <p style={{ ...s.body(), maxWidth: 440, margin: "0 auto" }}>No technical knowledge needed. If you can send a WhatsApp message, you can use NoTrace.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
-            {/* Connecting line */}
-            <div className="hidden md:block absolute top-12 left-[33.3%] w-[33.3%] h-px bg-gradient-to-r from-emerald-200 to-emerald-200 z-0" />
-            <div className="hidden md:block absolute top-12 left-[66.6%] w-[16.7%] h-px bg-gradient-to-r from-emerald-200 to-transparent z-0" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
             {[
-              { step: "1", emoji: "✍️", title: "Write your secret", desc: "Type your message — password, API key, personal note. Your browser encrypts it instantly." },
-              { step: "2", emoji: "🔗", title: "Share the link", desc: "Copy your secure link and send it via WhatsApp, Telegram, email — anywhere." },
-              { step: "3", emoji: "💥", title: "They read. It burns.", desc: "The recipient opens it once. Then it's gone forever. No recovery possible." },
-            ].map((s, i) => (
-              <div key={i} className="relative z-10 text-center bg-stone-50 rounded-2xl p-8 border border-stone-100">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white text-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-                  {s.emoji}
-                </div>
-                <span className="text-xs font-bold text-emerald-500 tracking-widest" className="mono">STEP {s.step}</span>
-                <h3 className="text-base font-bold text-stone-800 mt-2 mb-2">{s.title}</h3>
-                <p className="text-sm text-stone-500 leading-relaxed">{s.desc}</p>
+              { emoji: "✍️", step: "01", title: "Write your secret", desc: "Type your message — password, API key, personal note. Your browser encrypts it instantly before sending." },
+              { emoji: "🔗", step: "02", title: "Share the link", desc: "Copy your secure link and send it via WhatsApp, Telegram, email — anywhere you like." },
+              { emoji: "💥", step: "03", title: "They read. It burns.", desc: "The recipient opens it once. Then it's gone forever. No recovery, no second read, no trace." },
+            ].map((s2, i) => (
+              <div key={i} style={{ background: "#f9fafb", border: `1px solid ${C.border2}`, borderRadius: 20, padding: 32, textAlign: "center" }}>
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: C.emerald, fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>{s2.emoji}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.emerald, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: F.mono, marginBottom: 8 }}>STEP {s2.step}</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: C.dark, margin: "0 0 10px", fontFamily: F.sans }}>{s2.title}</h3>
+                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, margin: 0, fontFamily: F.sans }}>{s2.desc}</p>
               </div>
             ))}
           </div>
@@ -216,19 +279,42 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" className="py-24 px-6 bg-stone-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-3">Features</p>
-            <h2 className="text-4xl font-extrabold text-stone-900">Everything you need.<br />Nothing you don't.</h2>
+      <section id="features" style={s.section(C.bg)}>
+        <div style={s.container()}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <p style={s.label()}>Features</p>
+            <h2 style={s.h2()}>Everything you need.<br />Nothing you don't.</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {FEATURES.map((f, i) => (
-              <div key={i} className="feature-card p-6 rounded-2xl bg-white border border-stone-100 shadow-sm space-y-3 cursor-default">
-                <div className="text-3xl">{f.icon}</div>
+
+          {/* Top 3 — hero features */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
+            {[
+              { e: "🔥", t: "Burn After Read", d: "The secret is permanently destroyed after the first view. No recovery. No second read. No trace. Ever.", big: true },
+              { e: "🔐", t: "AES-256 Zero-Knowledge", d: "Encrypted in your browser before sending. We literally cannot read your messages — even if we wanted to.", big: true },
+              { e: "⚡", t: "No Login. No Tracking.", d: "Zero accounts, zero sign-ups, zero data collected. Send to anyone with just a link. Completely anonymous.", big: true },
+            ].map((f, i) => (
+              <div key={i} style={{ background: C.white, border: `2px solid ${C.emeraldBorder}`, borderRadius: 20, padding: 28, cursor: "default", boxShadow: "0 4px 20px rgba(16,185,129,0.08)" }}>
+                <div style={{ fontSize: 36, marginBottom: 14 }}>{f.e}</div>
+                <p style={{ fontSize: 16, fontWeight: 800, color: C.dark, margin: "0 0 8px", fontFamily: F.sans }}>{f.t}</p>
+                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.65, margin: 0, fontFamily: F.sans }}>{f.d}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Secondary features */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            {[
+              { e: "⏰", t: "Scheduled Secrets", d: "Set a reveal date for timed announcements." },
+              { e: "💬", t: "Secure Reply", d: "Recipient can reply once — also burn-after-read." },
+              { e: "📁", t: "Collections", d: "Organise and track secrets by project or team." },
+              { e: "🌍", t: "15 Languages", d: "Hindi, Arabic, Spanish, Japanese and more." },
+              { e: "📱", t: "Install as App", d: "PWA — works on mobile, offline too." },
+            ].map((f, i) => (
+              <div key={i} style={{ ...s.card(), display: "flex", gap: 12, alignItems: "flex-start", padding: 16 }}>
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{f.e}</span>
                 <div>
-                  <p className="text-sm font-bold text-stone-800">{f.title}</p>
-                  <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">{f.desc}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: C.dark, margin: "0 0 3px", fontFamily: F.sans }}>{f.t}</p>
+                  <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, margin: 0, fontFamily: F.sans }}>{f.d}</p>
                 </div>
               </div>
             ))}
@@ -237,79 +323,75 @@ export default function LandingPage() {
       </section>
 
       {/* ── Security ── */}
-      <section id="security" className="py-24 px-6 bg-stone-900 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+      <section id="security" style={{ ...s.section(C.dark), color: C.white }}>
+        <div style={s.container()}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 60, alignItems: "center" }}>
 
-          <div className="space-y-7">
-            <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Security</p>
-            <h2 className="text-4xl font-extrabold leading-tight">
-              We designed it so we <span className="text-emerald-400">can't</span> betray your trust.
-            </h2>
-            <p className="text-stone-400 leading-relaxed">
-              Most "secure" tools store your messages in plaintext and promise not to look. NoTrace is architectured differently — the encryption key never leaves your browser. Ever.
-            </p>
-            <div className="space-y-5">
-              {[
-                { icon: "🔐", title: "Browser-side AES-256-GCM encryption", desc: "Encryption happens locally before anything is transmitted." },
-                { icon: "🕵️", title: "Key never touches our server", desc: "Decryption key lives in URL #fragment — browsers never send this in HTTP requests." },
-                { icon: "🛡️", title: "Rate limiting + brute force detection", desc: "Auto Telegram alerts on suspicious activity. 5 password attempts max per secret." },
-                { icon: "📋", title: "Full security headers", desc: "HSTS, CSP, X-Frame-Options, Referrer-Policy enforced on every single request." },
-              ].map((item, i) => (
-                <div key={i} className="flex gap-4 p-4 rounded-xl bg-stone-800/50 border border-stone-700/50">
-                  <span className="text-xl shrink-0 mt-0.5">{item.icon}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{item.title}</p>
-                    <p className="text-xs text-stone-500 mt-1 leading-relaxed">{item.desc}</p>
+            <div>
+              <p style={{ ...s.label(), color: "#34d399" }}>Security</p>
+              <h2 style={s.h2(true)}>We designed it so we <span style={{ color: "#34d399" }}>can't</span> betray your trust.</h2>
+              <p style={{ ...s.body(true), marginBottom: 32 }}>Most "secure" tools store your messages in plaintext and promise not to look. NoTrace is architectured differently — the encryption key never leaves your browser. Ever.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { e: "🔐", t: "Browser-side AES-256-GCM encryption", d: "Encryption happens locally before anything is transmitted." },
+                  { e: "🕵️", t: "Key never touches our server", d: "Lives in URL #fragment — browsers never send this in HTTP requests." },
+                  { e: "🛡️", t: "Rate limiting + brute force detection", d: "Auto Telegram alerts. 5 password attempts max per secret." },
+                  { e: "📋", t: "Full security headers", d: "HSTS, CSP, X-Frame-Options, Referrer-Policy on every request." },
+                ].map((item, i) => (
+                  <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "rgba(255,255,255,0.05)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <span style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{item.e}</span>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: C.white, margin: "0 0 3px", fontFamily: F.sans }}>{item.t}</p>
+                      <p style={{ fontSize: 12, color: "#6b7280", margin: 0, fontFamily: F.sans }}>{item.d}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Code visual */}
-          <div className="rounded-2xl border border-stone-700 bg-stone-800 overflow-hidden shadow-2xl">
-            <div className="flex items-center gap-2 px-5 py-3.5 bg-stone-900 border-b border-stone-700">
-              <div className="w-3 h-3 rounded-full bg-red-500/70" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-              <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
-              <span className="text-xs text-stone-500 ml-2" className="mono">notrace — encryption flow</span>
-            </div>
-            <div className="p-6 space-y-5" className="mono">
-              {[
-                { label: "// your message", value: "Meet at 9pm tomorrow", color: "text-white", bg: "" },
-                { label: "// encrypted in browser", value: "7f3a9b2c8d1e4f6a49c2...", color: "text-emerald-400", bg: "" },
-                { label: "// what server stores", value: "7f3a9b2c8d1e4f6a49c2...", color: "text-stone-500", bg: "" },
-                { label: "// server can decrypt?", value: "✗  IMPOSSIBLE — key not here", color: "text-red-400", bg: "bg-red-950/30 rounded-lg px-3 py-1" },
-                { label: "// key location", value: "URL fragment (#) — browser only", color: "text-yellow-400", bg: "" },
-              ].map((row, i) => (
-                <div key={i}>
-                  <p className="text-xs text-stone-600 mb-1">{row.label}</p>
-                  <p className={`text-sm font-medium ${row.color} ${row.bg}`}>{row.value}</p>
-                  {i < 4 && <div className="mt-4 border-b border-stone-700/40" />}
-                </div>
-              ))}
+            {/* Code terminal */}
+            <div style={{ background: "#111827", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+              <div style={{ background: "#1f2937", padding: "12px 16px", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ef4444", opacity: 0.7 }} />
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#f59e0b", opacity: 0.7 }} />
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#10b981", opacity: 0.7 }} />
+                <span style={{ fontSize: 12, color: "#4b5563", marginLeft: 8, fontFamily: F.mono }}>notrace — encryption flow</span>
+              </div>
+              <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+                {[
+                  { label: "// your message", value: "Meet at 9pm tomorrow", color: "#f3f4f6" },
+                  { label: "// encrypted in browser", value: "7f3a9b2c8d1e4f6a49c2...", color: "#34d399" },
+                  { label: "// what server stores", value: "7f3a9b2c8d1e4f6a49c2...", color: "#4b5563" },
+                  { label: "// server can decrypt?", value: "✗  IMPOSSIBLE — key not here", color: "#f87171", bg: "rgba(239,68,68,0.1)", br: "8px" },
+                  { label: "// key location", value: "URL fragment (#) — browser only", color: "#fbbf24" },
+                ].map((row, i) => (
+                  <div key={i} style={{ paddingBottom: i < 4 ? 20 : 0, borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                    <p style={{ fontSize: 11, color: "#374151", margin: "0 0 4px", fontFamily: F.mono }}>{row.label}</p>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: row.color, margin: 0, fontFamily: F.mono, background: (row as any).bg, borderRadius: (row as any).br, padding: (row as any).bg ? "4px 8px" : 0, display: "inline-block" }}>{row.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ── Use cases ── */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-3">Who uses NoTrace</p>
-          <h2 className="text-4xl font-extrabold text-stone-900 mb-12">Built for anyone who values privacy.</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section style={s.section(C.white)}>
+        <div style={{ ...s.container(), textAlign: "center" }}>
+          <p style={s.label()}>Who uses NoTrace</p>
+          <h2 style={{ ...s.h2(), marginBottom: 48 }}>Built for anyone who values privacy.</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
             {[
-              { emoji: "💻", label: "Developers", desc: "Share API keys, tokens, and credentials without email trails." },
-              { emoji: "🏢", label: "Teams", desc: "Send passwords and sensitive docs that self-destruct after reading." },
-              { emoji: "📰", label: "Journalists", desc: "Communicate with sources safely. No chat history, no risk." },
-              { emoji: "👤", label: "Everyone", desc: "Send anything private — to anyone, anywhere, no app needed." },
+              { e: "💻", t: "Developers", d: "Share API keys, tokens, and credentials without email trails." },
+              { e: "🏢", t: "Teams", d: "Send passwords and sensitive docs that self-destruct after reading." },
+              { e: "📰", t: "Journalists", d: "Communicate with sources safely. No chat history, no risk." },
+              { e: "👤", t: "Everyone", d: "Send anything private — to anyone, anywhere, no app needed." },
             ].map((item, i) => (
-              <div key={i} className="p-6 rounded-2xl bg-stone-50 border border-stone-100 text-center space-y-3">
-                <div className="text-4xl">{item.emoji}</div>
-                <p className="text-sm font-bold text-stone-800">{item.label}</p>
-                <p className="text-xs text-stone-500 leading-relaxed">{item.desc}</p>
+              <div key={i} style={{ padding: 28, borderRadius: 20, background: C.bg, border: `1px solid ${C.border2}`, textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>{item.e}</div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: C.dark, margin: "0 0 8px", fontFamily: F.sans }}>{item.t}</p>
+                <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0, fontFamily: F.sans }}>{item.d}</p>
               </div>
             ))}
           </div>
@@ -317,102 +399,84 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-24 px-6 bg-stone-50">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-3">FAQ</p>
-            <h2 className="text-4xl font-extrabold text-stone-900">Questions answered.</h2>
+      <section id="faq" style={s.section(C.bg)}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <p style={s.label()}>FAQ</p>
+            <h2 style={s.h2()}>Questions answered.</h2>
           </div>
-          <div className="bg-white rounded-2xl border border-stone-100 shadow-sm px-6">
-            {FAQS.map((faq, i) => <FAQItem key={i} q={faq.q} a={faq.a} />)}
+          <div style={{ background: C.white, borderRadius: 20, border: `1px solid ${C.border}`, padding: "0 28px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            {[
+              { q: "Can NoTrace read my secrets?", a: "No. Your message is encrypted in your browser before it's sent. The decryption key lives only in the URL fragment — a part of the URL that browsers never transmit to servers. We store only unreadable ciphertext." },
+              { q: "What happens after someone reads my secret?", a: "The secret is immediately marked as read and permanently deleted from our database. It cannot be recovered, re-opened, or accessed again by anyone — including us." },
+              { q: "Do I need an account?", a: "No. NoTrace requires zero accounts, zero sign-ups, and zero personal information. Completely anonymous by design." },
+              { q: "What if the link expires before the recipient opens it?", a: "The secret is automatically deleted when it expires. You can choose 5 minutes, 1 hour, 24 hours, or no expiry when creating the link." },
+              { q: "Is NoTrace free?", a: "Yes. NoTrace is completely free with no limits, no ads, and no premium tier." },
+              { q: "How is this different from WhatsApp or Signal?", a: "WhatsApp and Signal require both parties to have accounts. NoTrace works with just a link — send to anyone, anywhere, no app required. And unlike WhatsApp, your messages truly disappear from our servers." },
+            ].map((faq, i) => <FAQItem key={i} q={faq.q} a={faq.a} />)}
           </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-24 px-6 bg-emerald-500 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="max-w-2xl mx-auto text-center relative z-10 space-y-6">
-          <h2 className="text-4xl font-extrabold text-white leading-tight">
-            Ready to send your<br />first secret?
-          </h2>
-          <p className="text-emerald-100">No sign-up. No credit card. No trace. Forever free.</p>
-          <Link href="/"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-emerald-600 font-extrabold hover:bg-emerald-50 active:scale-95 transition-all shadow-xl text-base"
-          >
-            <Shield className="w-5 h-5" />
-            Create Secure Message — It's Free
-            <ArrowRight className="w-4 h-4" />
+      <section style={{ padding: "80px 24px", background: C.emerald, textAlign: "center", position: "relative", overflow: "hidden", fontFamily: F.sans }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 20% 50%, rgba(255,255,255,0.08) 1px, transparent 1px), radial-gradient(circle at 80% 50%, rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 560, margin: "0 auto" }}>
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, color: C.white, margin: "0 0 12px", fontFamily: F.sans }}>Send your first self-destructing message.</h2>
+          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.75)", margin: "0 0 8px", fontFamily: F.sans }}>Even we can't read it. It burns after they do.</p>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: "0 0 32px", fontFamily: F.sans }}>No sign-up. No credit card. No trace.</p>
+          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "16px 32px", borderRadius: 16, background: C.white, color: C.emeraldDark, fontWeight: 800, fontSize: 16, textDecoration: "none", boxShadow: "0 8px 32px rgba(0,0,0,0.15)", fontFamily: F.sans }}>
+            🔐 Create Secure Message — It's Free →
           </Link>
-          <p className="text-emerald-200 text-sm italic">"Not everything should stay forever."</p>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", fontStyle: "italic", marginTop: 20, fontFamily: F.sans }}>"Not everything should stay forever."</p>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="py-12 px-6 bg-stone-900">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <footer style={{ background: "#111827", padding: "48px 24px 32px", fontFamily: F.sans }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 40, marginBottom: 40 }}>
 
-            {/* Brand */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-white">No<span className="text-emerald-400">Trace</span></span>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: C.emerald, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔐</div>
+                <span style={{ fontWeight: 800, fontSize: 15, color: C.white, fontFamily: F.sans }}>No<span style={{ color: "#34d399" }}>Trace</span></span>
               </div>
-              <p className="text-xs text-stone-500 leading-relaxed">
-                Send secrets that self-destruct.<br />
-                No accounts. No logs. No trace.
-              </p>
-              <div className="flex flex-wrap gap-2">
+              <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, margin: "0 0 16px", fontFamily: F.sans }}>Send secrets that self-destruct.<br />No accounts. No logs. No trace.</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {["AES-256-GCM", "Zero-Knowledge", "Burn-after-read"].map((t) => (
-                  <span key={t} className="px-2 py-1 rounded-md bg-stone-800 text-xs text-stone-400 border border-stone-700">{t}</span>
+                  <span key={t} style={{ padding: "4px 10px", borderRadius: 6, background: "#1f2937", fontSize: 11, color: "#4b5563", border: "1px solid #374151", fontFamily: F.sans }}>{t}</span>
                 ))}
               </div>
             </div>
 
-            {/* Links */}
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Product</p>
-              <div className="space-y-2.5">
-                {[
-                  { label: "Create Secret", href: "/" },
-                  { label: "My Collections", href: "/collections" },
-                  { label: "Admin Dashboard", href: "/admin" },
-                ].map((l) => (
-                  <Link key={l.label} href={l.href} className="block text-sm text-stone-500 hover:text-stone-300 transition-colors">{l.label}</Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Company */}
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Company</p>
-              <div className="space-y-3 text-sm text-stone-500">
-                <div className="flex items-start gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-stone-300 font-semibold">Engage Ad</p>
-                    <p className="text-xs">MSME Registered · Est. 2016</p>
-                    <p className="text-xs">Lucknow, Uttar Pradesh, India</p>
-                    <p className="text-xs">GST Registered · Since 2024</p>
-                    <p className="text-xs mt-1">GST: 09GVRPK4451F2Z3</p>
-                  </div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16, fontFamily: F.sans }}>Product</p>
+              {[["Create Secret", "/"], ["My Collections", "/collections"], ["Admin Dashboard", "/admin"]].map(([label, href]) => (
+                <div key={label} style={{ marginBottom: 10 }}>
+                  <Link href={href} style={{ fontSize: 14, color: "#6b7280", textDecoration: "none", fontFamily: F.sans }}>{label}</Link>
                 </div>
-                <a href="mailto:azadraj@engagead.in" className="flex items-center gap-2 hover:text-emerald-400 transition-colors">
-                  <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>azadraj@engagead.in</span>
-                </a>
-                <p className="text-xs text-stone-600">CTO — Queries & partnerships</p>
+              ))}
+            </div>
+
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16, fontFamily: F.sans }}>Company</p>
+              <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.8, fontFamily: F.sans }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#9ca3af", margin: "0 0 4px", fontFamily: F.sans }}>Engage Ad</p>
+                <p style={{ margin: "0 0 2px" }}>MSME Registered · Est. 2016</p>
+                <p style={{ margin: "0 0 2px" }}>GST Registered · Since 2024</p>
+                <p style={{ margin: "0 0 2px" }}>GST: 09GVRPK4451F2Z3</p>
+                <p style={{ margin: "0 0 12px" }}>Lucknow, Uttar Pradesh, India</p>
+                <a href="mailto:azadraj@engagead.in" style={{ color: "#34d399", textDecoration: "none", fontFamily: F.sans }}>📧 azadraj@engagead.in</a>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#4b5563" }}>CTO — Queries & partnerships</p>
               </div>
             </div>
 
           </div>
 
-          <div className="border-t border-stone-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-600">
-            <p>© {new Date().getFullYear()} Engage Ad. All rights reserved. NoTrace is a product of Engage Ad.</p>
-            <p>No logs · No tracking · No accounts · Privacy first</p>
+          <div style={{ borderTop: "1px solid #1f2937", paddingTop: 24, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, fontSize: 12, color: "#4b5563", fontFamily: F.sans }}>
+            <p style={{ margin: 0 }}>© {new Date().getFullYear()} Engage Ad. All rights reserved. NoTrace is a product of Engage Ad.</p>
+            <p style={{ margin: 0 }}>No logs · No tracking · No accounts · Privacy first</p>
           </div>
         </div>
       </footer>
