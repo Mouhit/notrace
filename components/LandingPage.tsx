@@ -193,41 +193,173 @@ export default function LandingPage() {
             No sign-up. No credit card. Just a link.
           </p>
 
-          {/* ── Visual Demo — message → burn animation ── */}
-          <div style={{ maxWidth: 480, margin: "0 auto 36px", borderRadius: 20, overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 8px 40px rgba(0,0,0,0.1)", background: C.white }}>
+          {/* ── Visual Demo — 4-stage animated sequence, 12s loop ── */}
+          <div style={{ maxWidth: 500, margin: "0 auto 36px", borderRadius: 24, overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 12px 48px rgba(0,0,0,0.12)", background: C.white }}>
             <style>{`
-              @keyframes msgAppear { 0%{opacity:0;transform:translateY(10px)} 10%{opacity:1;transform:translateY(0)} 70%{opacity:1} 85%{opacity:0;transform:scale(0.95)} 100%{opacity:0} }
-              @keyframes burnAppear { 0%{opacity:0} 80%{opacity:0} 90%{opacity:1} 100%{opacity:1} }
-              @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.7} 30%{opacity:0.9} 70%{opacity:0.8} }
-              .demo-msg { animation: msgAppear 5s ease-in-out infinite; }
-              .demo-burn { animation: burnAppear 5s ease-in-out infinite; }
-              .demo-flame { animation: flicker 0.8s ease-in-out infinite; }
+              /* 12-second loop: compose(0-3s) → sending(3-5s) → reading(5-9s) → burned(9-12s) */
+
+              /* Stage 1 — Compose (0-25%) */
+              @keyframes stage1 {
+                0%    { opacity:0; transform:translateY(8px); }
+                5%    { opacity:1; transform:translateY(0); }
+                22%   { opacity:1; transform:translateY(0); }
+                27%   { opacity:0; transform:translateY(-6px); }
+                100%  { opacity:0; }
+              }
+              /* Stage 2 — Sending (25-42%) */
+              @keyframes stage2 {
+                0%    { opacity:0; }
+                25%   { opacity:0; transform:scale(0.96); }
+                30%   { opacity:1; transform:scale(1); }
+                40%   { opacity:1; }
+                45%   { opacity:0; }
+                100%  { opacity:0; }
+              }
+              /* Stage 3 — Reading (42-75%) */
+              @keyframes stage3 {
+                0%    { opacity:0; }
+                43%   { opacity:0; transform:translateY(8px); }
+                48%   { opacity:1; transform:translateY(0); }
+                72%   { opacity:1; }
+                77%   { opacity:0; }
+                100%  { opacity:0; }
+              }
+              /* Stage 4 — Burned (75-100%) */
+              @keyframes stage4 {
+                0%    { opacity:0; }
+                76%   { opacity:0; transform:scale(0.9); }
+                82%   { opacity:1; transform:scale(1.05); }
+                86%   { transform:scale(1); }
+                96%   { opacity:1; }
+                100%  { opacity:0; }
+              }
+              /* Typing cursor blink */
+              @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+              /* Flame flicker */
+              @keyframes flicker { 0%,100%{transform:scale(1) rotate(-2deg)} 33%{transform:scale(1.1) rotate(2deg)} 66%{transform:scale(0.95) rotate(-1deg)} }
+              /* Sending dots */
+              @keyframes dot1 { 0%,100%{opacity:0.3} 20%{opacity:1} }
+              @keyframes dot2 { 0%,100%{opacity:0.3} 40%{opacity:1} }
+              @keyframes dot3 { 0%,100%{opacity:0.3} 60%{opacity:1} }
+              /* Countdown bar */
+              @keyframes shrink { 0%{width:100%} 100%{width:0%} }
+
+              .demo-s1 { animation: stage1 12s ease-in-out infinite; position:absolute; width:90%; left:5%; }
+              .demo-s2 { animation: stage2 12s ease-in-out infinite; position:absolute; width:90%; left:5%; }
+              .demo-s3 { animation: stage3 12s ease-in-out infinite; position:absolute; width:90%; left:5%; }
+              .demo-s4 { animation: stage4 12s ease-in-out infinite; position:absolute; width:90%; left:5%; }
+              .demo-cursor { animation: blink 0.8s step-end infinite; }
+              .demo-flame-icon { animation: flicker 0.6s ease-in-out infinite; display:inline-block; }
+              .demo-dot1 { animation: dot1 1.2s ease-in-out infinite; }
+              .demo-dot2 { animation: dot2 1.2s ease-in-out infinite; }
+              .demo-dot3 { animation: dot3 1.2s ease-in-out infinite; }
+              .demo-bar { animation: shrink 4s linear infinite; animation-delay: 5.76s; }
             `}</style>
 
-            {/* Demo header */}
-            <div style={{ background: "#f9fafb", borderBottom: `1px solid ${C.border2}`, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", opacity: 0.6 }} />
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b", opacity: 0.6 }} />
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", opacity: 0.6 }} />
-              <span style={{ fontSize: 12, color: C.muted2, marginLeft: 8, fontFamily: F.mono }}>notrace.co.in/s/xK9mPq...</span>
+            {/* Browser chrome */}
+            <div style={{ background: "#f3f4f6", borderBottom: `1px solid ${C.border2}`, padding: "11px 16px", display: "flex", alignItems: "center", gap: 7 }}>
+              <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#ef4444", opacity: 0.7 }} />
+              <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#f59e0b", opacity: 0.7 }} />
+              <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#10b981", opacity: 0.7 }} />
+              <div style={{ flex: 1, background: C.white, borderRadius: 6, padding: "4px 12px", marginLeft: 8, fontSize: 11, color: C.muted2, fontFamily: F.mono, border: `1px solid ${C.border}` }}>
+                🔒 notrace.co.in
+              </div>
             </div>
 
-            {/* Demo content */}
-            <div style={{ padding: 28, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-              {/* Message state */}
-              <div className="demo-msg" style={{ position: "absolute", textAlign: "center", width: "100%" }}>
-                <div style={{ display: "inline-block", background: "#f0fdf4", border: `1px solid ${C.emeraldBorder}`, borderRadius: 12, padding: "14px 20px", marginBottom: 12 }}>
-                  <p style={{ fontSize: 15, color: C.dark, margin: 0, fontFamily: F.sans, fontWeight: 500 }}>🔑 My bank password is: <strong>Tr0ub4dor</strong></p>
+            {/* Stage label bar */}
+            <div style={{ background: "#fafafa", borderBottom: `1px solid ${C.border2}`, padding: "8px 20px", display: "flex", gap: 0 }}>
+              {[
+                { label: "✍️ Compose", pct: "25%" },
+                { label: "📤 Sending", pct: "17%" },
+                { label: "👁 Reading", pct: "33%" },
+                { label: "🔥 Burned", pct: "25%" },
+              ].map((st, i) => (
+                <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 10, color: C.muted2, fontFamily: F.sans, padding: "0 2px", borderRight: i < 3 ? `1px solid ${C.border2}` : "none" }}>
+                  {st.label}
                 </div>
-                <p style={{ fontSize: 12, color: C.muted2, margin: 0, fontFamily: F.sans }}>Reading... secret will be destroyed</p>
+              ))}
+            </div>
+
+            {/* Animation stage area */}
+            <div style={{ minHeight: 220, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+
+              {/* ── Stage 1: Composing ── */}
+              <div className="demo-s1" style={{ textAlign: "left" }}>
+                <div style={{ background: "#f9fafb", border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 }}>
+                  <p style={{ fontSize: 11, color: C.muted2, margin: "0 0 10px", fontFamily: F.sans, textTransform: "uppercase", letterSpacing: "0.08em" }}>🔐 New Secret Message</p>
+                  <div style={{ background: C.white, border: `2px solid ${C.emeraldBorder}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12, minHeight: 52 }}>
+                    <p style={{ fontSize: 15, color: C.dark, margin: 0, fontFamily: F.sans, fontWeight: 500, lineHeight: 1.5 }}>
+                      31 Dec 26, Baker Street, London<span className="demo-cursor" style={{ color: C.emerald, fontWeight: 700 }}>|</span>
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {["5 min", "1 hr", "24 hrs"].map((t, i) => (
+                        <span key={t} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: i === 1 ? C.emerald : C.bg, color: i === 1 ? C.white : C.muted, fontFamily: F.sans, border: `1px solid ${i === 1 ? C.emerald : C.border}` }}>{t}</span>
+                      ))}
+                    </div>
+                    <div style={{ background: C.emerald, color: C.white, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 8, fontFamily: F.sans }}>🔐 Secure</div>
+                  </div>
+                </div>
               </div>
 
-              {/* Burned state */}
-              <div className="demo-burn" style={{ position: "absolute", textAlign: "center", width: "100%" }}>
-                <div className="demo-flame" style={{ fontSize: 48, marginBottom: 8 }}>🔥</div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "#dc2626", margin: "0 0 4px", fontFamily: F.sans }}>Secret permanently destroyed.</p>
-                <p style={{ fontSize: 12, color: C.muted2, margin: 0, fontFamily: F.sans }}>It cannot be recovered or accessed again.</p>
+              {/* ── Stage 2: Sending ── */}
+              <div className="demo-s2" style={{ textAlign: "center" }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.emeraldLight, border: `2px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 24 }}>🔐</div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: C.dark, margin: "0 0 6px", fontFamily: F.sans }}>Encrypting in your browser</p>
+                  <p style={{ fontSize: 12, color: C.muted, margin: "0 0 16px", fontFamily: F.sans }}>Server will never see your message</p>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+                    <span className="demo-dot1" style={{ width: 8, height: 8, borderRadius: "50%", background: C.emerald, display: "inline-block" }} />
+                    <span className="demo-dot2" style={{ width: 8, height: 8, borderRadius: "50%", background: C.emerald, display: "inline-block" }} />
+                    <span className="demo-dot3" style={{ width: 8, height: 8, borderRadius: "50%", background: C.emerald, display: "inline-block" }} />
+                  </div>
+                </div>
+                <div style={{ background: "#f0fdf4", border: `1px solid ${C.emeraldBorder}`, borderRadius: 10, padding: "8px 14px", display: "inline-block" }}>
+                  <p style={{ fontSize: 11, color: C.emeraldDark, margin: 0, fontFamily: F.mono }}>🔗 notrace.co.in/s/xK9mPq#<span style={{ opacity: 0.5 }}>AES_KEY</span></p>
+                </div>
               </div>
+
+              {/* ── Stage 3: Reading ── */}
+              <div className="demo-s3" style={{ textAlign: "left", width: "90%" }}>
+                <div style={{ background: "#f9fafb", border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, overflow: "hidden" }}>
+                  {/* Countdown bar */}
+                  <div style={{ height: 3, background: C.border2, borderRadius: 99, marginBottom: 16, overflow: "hidden" }}>
+                    <div className="demo-bar" style={{ height: "100%", background: C.emerald, borderRadius: 99 }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 14 }}>🛡️</span>
+                    <p style={{ fontSize: 11, color: C.muted, margin: 0, fontFamily: F.sans }}>Secret message — reading now</p>
+                  </div>
+                  <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+                    <p style={{ fontSize: 16, color: C.dark, margin: 0, fontFamily: F.sans, fontWeight: 600, lineHeight: 1.5 }}>
+                      31 Dec 26, Baker Street, London
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#dc2626", margin: 0, fontFamily: F.sans }}>⚠️ This secret will be permanently destroyed after the timer ends.</p>
+                </div>
+              </div>
+
+              {/* ── Stage 4: Burned ── */}
+              <div className="demo-s4" style={{ textAlign: "center" }}>
+                <div className="demo-flame-icon" style={{ fontSize: 56, marginBottom: 12 }}>🔥</div>
+                <p style={{ fontSize: 17, fontWeight: 800, color: "#dc2626", margin: "0 0 6px", fontFamily: F.sans }}>
+                  Secret permanently destroyed.
+                </p>
+                <p style={{ fontSize: 13, color: C.muted, margin: "0 0 16px", fontFamily: F.sans }}>
+                  It cannot be recovered or accessed again.<br />By anyone. Including us.
+                </p>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 99, background: "#fef2f2", border: "1px solid #fecaca" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+                  <span style={{ fontSize: 12, color: "#dc2626", fontFamily: F.sans, fontWeight: 600 }}>Message destroyed</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div style={{ background: "#f9fafb", borderTop: `1px solid ${C.border2}`, padding: "10px 20px", textAlign: "center" }}>
+              <p style={{ fontSize: 11, color: C.muted2, margin: 0, fontFamily: F.sans }}>🔐 End-to-end encrypted · Zero-knowledge · Burn-after-read</p>
             </div>
           </div>
 
