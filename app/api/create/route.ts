@@ -9,14 +9,11 @@ import { sendTelegramAlert } from "@/lib/alerts";
 export async function POST(req: NextRequest) {
   const ip = getIP(req as any);
 
-  // Rate limit: 10 secrets per 10 minutes per IP
   const rl = rateLimit({ key: `create:${ip}`, limit: 10, windowMs: 10 * 60 * 1000 });
   if (!rl.allowed) {
     await sendTelegramAlert({
       type: rl.count >= 50 ? "mass_creation" : "rate_limit_breach",
-      ip,
-      details: "Too many secrets created",
-      count: rl.count,
+      ip, details: "Too many secrets created", count: rl.count,
     });
     return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
   }
@@ -30,9 +27,7 @@ export async function POST(req: NextRequest) {
 
     const { title, content, password, expiry, scheduled_at, is_reply, reply_to_id, collection_id } = body;
 
-    if (!content?.trim()) {
-      return NextResponse.json({ error: "Content is required" }, { status: 400 });
-    }
+    if (!content?.trim()) return NextResponse.json({ error: "Content is required" }, { status: 400 });
     if (content.length > 10000) {
       await sendTelegramAlert({ type: "invalid_requests", ip, details: "Oversized content payload" });
       return NextResponse.json({ error: "Content too long" }, { status: 400 });
@@ -42,9 +37,16 @@ export async function POST(req: NextRequest) {
     const id = nanoid(12);
     const password_hash = password ? await hashPassword(password) : null;
     const expirySeconds = expiryToSeconds(expiry as Expiry);
-    const expires_at = expirySeconds
-      ? new Date(Date.now() + expirySeconds * 1000).toISOString()
-      : null;
+
+    // FIX: If scheduled, expires_at counts from scheduled_at, not from now
+    // This prevents the secret expiring before it ever unlocks
+    let expires_at: string | null = null;
+    if (expirySeconds) {
+      const baseTime = scheduled_at
+        ? new Date(scheduled_at).getTime()  // start expiry from unlock time
+        : Date.now();                        // start expiry from now
+      expires_at = new Date(baseTime + expirySeconds * 1000).toISOString();
+    }
 
     const { error } = await supabase.from("secrets").insert({
       id,

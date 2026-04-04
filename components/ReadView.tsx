@@ -8,6 +8,117 @@ import CountdownRing from "./CountdownRing";
 import SecureReply from "./SecureReply";
 import { importEncryptionKey, decryptSecret, extractKeyFromUrl } from "@/lib/crypto";
 
+// ── Live ticking scheduled countdown ──────────────────────────────────────
+function ScheduledCountdown({
+  scheduledAt,
+  secretTitle,
+  onUnlocked,
+}: {
+  scheduledAt: string;
+  secretTitle: string | null;
+  onUnlocked: () => void;
+}) {
+  const unlockDate = new Date(scheduledAt);
+
+  const getRemaining = () => {
+    const diff = unlockDate.getTime() - Date.now();
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    return { days, hrs, mins, secs, totalMs: diff };
+  };
+
+  const [remaining, setRemaining] = useState(getRemaining());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const r = getRemaining();
+      setRemaining(r);
+      if (!r) {
+        clearInterval(interval);
+        onUnlocked(); // auto-refresh when timer hits 0
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [scheduledAt]);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return (
+    <div className="animate-fade-up max-w-md mx-auto">
+      <div className="rounded-2xl border border-surface-border bg-surface-card p-8 space-y-6 text-center">
+        <div className="flex justify-center">
+          <div className="w-16 h-16 rounded-2xl border border-brand-border bg-brand-muted flex items-center justify-center text-3xl">
+            🔒
+          </div>
+        </div>
+
+        {secretTitle && (
+          <p className="text-base font-semibold text-white">"{secretTitle}"</p>
+        )}
+
+        <div>
+          <p className="text-sm text-slate-400 mb-4">This secret unlocks in</p>
+
+          {remaining ? (
+            <>
+              {/* Live countdown display */}
+              <div className="flex items-center justify-center gap-2">
+                {remaining.days > 0 && (
+                  <div className="flex flex-col items-center">
+                    <span className="text-4xl font-black text-brand tabular-nums">{remaining.days}</span>
+                    <span className="text-xs text-slate-500 uppercase tracking-widest mt-1">days</span>
+                  </div>
+                )}
+                {remaining.days > 0 && <span className="text-2xl text-slate-600 font-bold mb-4">:</span>}
+
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-black text-brand tabular-nums">{pad(remaining.hrs)}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-widest mt-1">hrs</span>
+                </div>
+                <span className="text-2xl text-slate-600 font-bold mb-4">:</span>
+
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-black text-brand tabular-nums">{pad(remaining.mins)}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-widest mt-1">min</span>
+                </div>
+                <span className="text-2xl text-slate-600 font-bold mb-4">:</span>
+
+                <div className="flex flex-col items-center">
+                  <span className="text-4xl font-black text-brand tabular-nums">{pad(remaining.secs)}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-widest mt-1">sec</span>
+                </div>
+              </div>
+
+              {/* Unlock date */}
+              <p className="text-xs text-slate-500 mt-4">
+                Unlocks on{" "}
+                <span className="text-slate-300">
+                  {unlockDate.toLocaleString(undefined, {
+                    month: "long", day: "numeric", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </span>
+              </p>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-brand" />
+              <p className="text-sm text-brand">Unlocking now...</p>
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-slate-600">
+          Come back when the timer reaches zero — the secret will unlock automatically.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 type Phase = "loading" | "notFound" | "alreadyRead" | "passwordEntry" | "confirm" | "revealing" | "revealed" | "destroyed" | "error" | "scheduled";
 
 export default function ReadView({ id }: { id: string }) {
@@ -153,37 +264,15 @@ export default function ReadView({ id }: { id: string }) {
   );
 
   if (phase === "scheduled" && scheduledAt) {
-    const unlockDate = new Date(scheduledAt);
-    const now = new Date();
-    const diffMs = unlockDate.getTime() - now.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return (
-      <div className="animate-fade-up max-w-md mx-auto">
-        <div className="rounded-2xl border border-surface-border bg-surface-card p-8 space-y-6 text-center">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl border border-brand-border bg-brand-muted flex items-center justify-center text-3xl">
-              🔒
-            </div>
-          </div>
-          {secretTitle && <p className="text-base font-semibold text-white">"{secretTitle}"</p>}
-          <div>
-            <p className="text-sm font-medium text-white">This secret unlocks in</p>
-            <p className="text-2xl font-bold text-brand mt-2 tabular-nums">
-              {diffDays > 0 && `${diffDays}d `}{diffHrs > 0 && `${diffHrs}h `}{diffMins > 0 && `${diffMins}m`}
-            </p>
-            <p className="text-xs text-slate-500 mt-2">
-              {unlockDate.toLocaleString(undefined, {
-                month: "long", day: "numeric", year: "numeric",
-                hour: "2-digit", minute: "2-digit",
-              })}
-            </p>
-          </div>
-          <p className="text-xs text-slate-600">Come back when the timer runs out to reveal this secret.</p>
-        </div>
-      </div>
-    );
+    return <ScheduledCountdown
+      scheduledAt={scheduledAt}
+      secretTitle={secretTitle}
+      onUnlocked={() => {
+        // Auto-refresh peek when timer hits zero
+        setPhase("loading");
+        setScheduledAt(null);
+      }}
+    />;
   }
 
   if (phase === "error") return (
