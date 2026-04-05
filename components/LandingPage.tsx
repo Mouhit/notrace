@@ -121,9 +121,7 @@ export default function LandingPage() {
       <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border2}`, fontFamily: F.sans }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.emerald, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: C.white, fontSize: 16 }}>🔐</span>
-            </div>
+            <img src="/logo.png" alt="NoTrace" style={{ width: 36, height: 36, borderRadius: 8 }} />
             <span style={{ fontWeight: 800, fontSize: 16, color: C.dark, fontFamily: F.sans }}>
               No<span style={{ color: C.emerald }}>Trace</span>
             </span>
@@ -571,7 +569,7 @@ export default function LandingPage() {
 
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: C.emerald, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🔐</div>
+                <img src="/logo.png" alt="NoTrace" style={{ width: 32, height: 32, borderRadius: 8 }} />
                 <span style={{ fontWeight: 800, fontSize: 15, color: C.white, fontFamily: F.sans }}>No<span style={{ color: "#34d399" }}>Trace</span></span>
               </div>
               <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, margin: "0 0 16px", fontFamily: F.sans }}>Send secrets that self-destruct.<br />No accounts. No logs. No trace.</p>
