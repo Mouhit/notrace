@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, MessageSquare } from "lucide-react";
 import { useLang } from "@/lib/language";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -35,12 +35,22 @@ export default function Header() {
               {t("nav", "tagline")}
             </span>
           </div>
+
+          {/* P2P Chat link */}
+          <Link href="/chat"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">P2P Chat</span>
+          </Link>
+
           <Link href="/collections"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
           >
             <FolderOpen className="w-3.5 h-3.5" />
             <span className="hidden sm:block">Collections</span>
           </Link>
+
           <ThemeToggle />
           <LanguageSwitcher />
         </div>
