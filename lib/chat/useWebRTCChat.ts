@@ -35,9 +35,9 @@ export function useWebRTCChat({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const channelRef = useRef<any>(null);
   const supabaseRef = useRef<any>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSignalIdRef = useRef<number>(0);
   const [isConnected, setIsConnected] = useState(false);
-  const readyRef = useRef(false); // tracks whether our subscription is live
-  const pendingSignalsRef = useRef<Array<{ type: string; payload: any }>>([]);
   const isCaller = localUsername < remoteUsername;
 
   const getSupabase = useCallback(() => {
@@ -50,18 +50,11 @@ export function useWebRTCChat({
     return supabaseRef.current;
   }, []);
 
-  // Send signal via the shared subscribed channel (not a throwaway instance)
   const sendSignal = useCallback(async (type: string, payload: any) => {
-    const ch = channelRef.current;
-    if (!ch || !readyRef.current) {
-      // Queue it — channel not ready yet
-      pendingSignalsRef.current.push({ type, payload });
-      return;
-    }
-    await ch.send({
-      type: "broadcast",
-      event: "signal",
-      payload: { room_id: roomId, sender: localUsername, type, payload },
+    await fetch("/api/chat/signal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: roomId, sender: localUsername, type, payload }),
     });
   }, [roomId, localUsername]);
 
@@ -78,7 +71,6 @@ export function useWebRTCChat({
   }, [onMessage]);
 
   const initPeerConnection = useCallback(() => {
-    // Don't re-create if already exists
     if (pcRef.current) return pcRef.current;
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -116,7 +108,6 @@ export function useWebRTCChat({
   }, [initPeerConnection, sendSignal]);
 
   const handleSignal = useCallback(async (type: string, payload: any) => {
-    // Lazily create PC for callee when offer arrives
     if (type === "offer" && !pcRef.current) {
       initPeerConnection();
     }
@@ -135,13 +126,38 @@ export function useWebRTCChat({
         }
       } else if (type === "ice") {
         if (pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          } catch { /* ignore duplicate candidates */ }
         }
       }
     } catch (err) {
       console.error("handleSignal error:", type, err);
     }
   }, [initPeerConnection, sendSignal]);
+
+  const pollSignals = useCallback(async () => {
+    try {
+      const sb = getSupabase();
+      const { data } = await sb
+        .from("signaling")
+        .select("id, type, payload")
+        .eq("room_id", roomId)
+        .neq("sender", localUsername)
+        .gt("id", lastSignalIdRef.current)
+        .order("id", { ascending: true })
+        .limit(50);
+
+      if (data && data.length > 0) {
+        for (const row of data) {
+          lastSignalIdRef.current = row.id;
+          await handleSignal(row.type, row.payload);
+        }
+      }
+    } catch (err) {
+      console.error("Poll error:", err);
+    }
+  }, [roomId, localUsername, getSupabase, handleSignal]);
 
   const sendMessage = useCallback((text: string, from: string) => {
     if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") return false;
@@ -156,7 +172,7 @@ export function useWebRTCChat({
   }, []);
 
   const destroy = useCallback(() => {
-    readyRef.current = false;
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     channelRef.current?.unsubscribe();
     channelRef.current = null;
     dataChannelRef.current?.close();
@@ -171,7 +187,7 @@ export function useWebRTCChat({
 
     const sb = getSupabase();
 
-    // Create ONE channel and reuse it for both listening AND sending
+    // Subscribe to realtime for ICE candidates and quick handshake
     const channel = sb.channel(`signal:${roomId}`, {
       config: { broadcast: { self: false } },
     });
@@ -182,34 +198,23 @@ export function useWebRTCChat({
       }
     });
 
-    channel.subscribe((status: string) => {
-      if (status === "SUBSCRIBED") {
-        readyRef.current = true;
-        channelRef.current = channel;
-
-        // Flush any signals queued before subscription was ready
-        const pending = [...pendingSignalsRef.current];
-        pendingSignalsRef.current = [];
-        for (const sig of pending) {
-          channel.send({
-            type: "broadcast",
-            event: "signal",
-            payload: { room_id: roomId, sender: localUsername, type: sig.type, payload: sig.payload },
-          });
-        }
-
-        // Caller starts the handshake only after channel is confirmed SUBSCRIBED
-        if (isCaller) {
-          // Small delay to give callee time to subscribe
-          setTimeout(startCall, 800);
-        }
-      }
-    });
-
+    channel.subscribe();
     channelRef.current = channel;
 
+    // ALSO poll the DB every 500ms for offers/answers (they might arrive before subscription is ready)
+    pollIntervalRef.current = setInterval(pollSignals, 500);
+
+    // Caller starts after 1.5s to give callee time to subscribe + poll
+    if (isCaller) {
+      const timer = setTimeout(startCall, 1500);
+      return () => {
+        clearTimeout(timer);
+        destroy();
+      };
+    }
+
     return () => destroy();
-  }, [roomId, localUsername, remoteUsername]);
+  }, [roomId, localUsername, remoteUsername, isCaller, getSupabase, handleSignal, pollSignals, destroy]);
 
   return { isConnected, sendMessage, destroy };
 }
