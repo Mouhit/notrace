@@ -33,12 +33,14 @@ export function useWebRTCChat({
 }: UseWebRTCChatOptions) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  const supabaseRef = useRef<any>(null);
   const channelRef = useRef<any>(null);
+  const supabaseRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const isCaller = localUsername < remoteUsername; // deterministic caller
+  const readyRef = useRef(false); // tracks whether our subscription is live
+  const pendingSignalsRef = useRef<Array<{ type: string; payload: any }>>([]);
+  const isCaller = localUsername < remoteUsername;
 
-  const supabase = useCallback(() => {
+  const getSupabase = useCallback(() => {
     if (!supabaseRef.current) {
       supabaseRef.current = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,34 +50,46 @@ export function useWebRTCChat({
     return supabaseRef.current;
   }, []);
 
+  // Send signal via the shared subscribed channel (not a throwaway instance)
   const sendSignal = useCallback(async (type: string, payload: any) => {
-    await fetch("/api/chat/signal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_id: roomId, sender: localUsername, type, payload }),
+    const ch = channelRef.current;
+    if (!ch || !readyRef.current) {
+      // Queue it — channel not ready yet
+      pendingSignalsRef.current.push({ type, payload });
+      return;
+    }
+    await ch.send({
+      type: "broadcast",
+      event: "signal",
+      payload: { room_id: roomId, sender: localUsername, type, payload },
     });
   }, [roomId, localUsername]);
 
   const setupDataChannel = useCallback((dc: RTCDataChannel) => {
     dataChannelRef.current = dc;
-    dc.onopen = () => { setIsConnected(true); };
-    dc.onclose = () => { setIsConnected(false); };
+    dc.onopen = () => setIsConnected(true);
+    dc.onclose = () => setIsConnected(false);
     dc.onmessage = (e) => {
       try {
         const msg: ChatMessage = JSON.parse(e.data);
         onMessage(msg);
-      } catch { /* ignore malformed */ }
+      } catch { /* ignore */ }
     };
   }, [onMessage]);
 
   const initPeerConnection = useCallback(() => {
+    // Don't re-create if already exists
+    if (pcRef.current) return pcRef.current;
+
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
       onConnectionChange(pc.connectionState);
       if (pc.connectionState === "connected") setIsConnected(true);
-      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") setIsConnected(false);
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        setIsConnected(false);
+      }
     };
 
     pc.onicecandidate = (e) => {
@@ -102,22 +116,30 @@ export function useWebRTCChat({
   }, [initPeerConnection, sendSignal]);
 
   const handleSignal = useCallback(async (type: string, payload: any) => {
-    if (!pcRef.current) {
-      if (type === "offer") {
-        initPeerConnection();
-      } else return;
+    // Lazily create PC for callee when offer arrives
+    if (type === "offer" && !pcRef.current) {
+      initPeerConnection();
     }
-    const pc = pcRef.current!;
+    const pc = pcRef.current;
+    if (!pc) return;
 
-    if (type === "offer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await sendSignal("answer", { sdp: answer });
-    } else if (type === "answer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-    } else if (type === "ice") {
-      try { await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch {}
+    try {
+      if (type === "offer") {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await sendSignal("answer", { sdp: answer });
+      } else if (type === "answer") {
+        if (pc.signalingState === "have-local-offer") {
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        }
+      } else if (type === "ice") {
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        }
+      }
+    } catch (err) {
+      console.error("handleSignal error:", type, err);
     }
   }, [initPeerConnection, sendSignal]);
 
@@ -125,43 +147,69 @@ export function useWebRTCChat({
     if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") return false;
     const msg: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      from, text, timestamp: Date.now(),
+      from,
+      text,
+      timestamp: Date.now(),
     };
     dataChannelRef.current.send(JSON.stringify(msg));
     return msg;
   }, []);
 
   const destroy = useCallback(() => {
+    readyRef.current = false;
     channelRef.current?.unsubscribe();
+    channelRef.current = null;
     dataChannelRef.current?.close();
+    dataChannelRef.current = null;
     pcRef.current?.close();
     pcRef.current = null;
-    dataChannelRef.current = null;
     setIsConnected(false);
   }, []);
 
   useEffect(() => {
-    // Subscribe to signaling channel via Supabase Realtime
-    const sb = supabase();
-    const channel = sb.channel(`signal:${roomId}`)
-      .on("broadcast", { event: "signal" }, ({ payload }: any) => {
-        // Only handle signals meant for us
-        if (payload.sender !== localUsername && payload.room_id === roomId) {
-          handleSignal(payload.type, payload.payload);
+    if (!roomId || !localUsername || !remoteUsername) return;
+
+    const sb = getSupabase();
+
+    // Create ONE channel and reuse it for both listening AND sending
+    const channel = sb.channel(`signal:${roomId}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    channel.on("broadcast", { event: "signal" }, ({ payload }: any) => {
+      if (payload.sender !== localUsername && payload.room_id === roomId) {
+        handleSignal(payload.type, payload.payload);
+      }
+    });
+
+    channel.subscribe((status: string) => {
+      if (status === "SUBSCRIBED") {
+        readyRef.current = true;
+        channelRef.current = channel;
+
+        // Flush any signals queued before subscription was ready
+        const pending = [...pendingSignalsRef.current];
+        pendingSignalsRef.current = [];
+        for (const sig of pending) {
+          channel.send({
+            type: "broadcast",
+            event: "signal",
+            payload: { room_id: roomId, sender: localUsername, type: sig.type, payload: sig.payload },
+          });
         }
-      })
-      .subscribe();
+
+        // Caller starts the handshake only after channel is confirmed SUBSCRIBED
+        if (isCaller) {
+          // Small delay to give callee time to subscribe
+          setTimeout(startCall, 800);
+        }
+      }
+    });
 
     channelRef.current = channel;
 
-    // Caller initiates after short delay to ensure both sides are subscribed
-    if (isCaller) {
-      const t = setTimeout(startCall, 1500);
-      return () => { clearTimeout(t); destroy(); };
-    }
-
     return () => destroy();
-  }, [roomId, localUsername, isCaller, supabase, handleSignal, startCall, destroy]);
+  }, [roomId, localUsername, remoteUsername]);
 
   return { isConnected, sendMessage, destroy };
 }
