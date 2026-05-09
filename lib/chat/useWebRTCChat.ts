@@ -49,7 +49,7 @@ export function useWebRTCChat({
     return supabaseRef.current;
   }, []);
 
-  // Broadcast directly through the subscribed channel (not an API route)
+  // Broadcast directly through the subscribed channel
   const sendSignal = useCallback(async (type: string, payload: any) => {
     if (!channelRef.current || !readyRef.current) {
       console.warn("Channel not ready, signal queued:", type);
@@ -222,7 +222,6 @@ export function useWebRTCChat({
       if (status === "SUBSCRIBED") {
         readyRef.current = true;
         
-        // Caller starts after subscription is confirmed
         if (isCaller) {
           console.log("Caller: channel ready, starting call");
           startCall();
