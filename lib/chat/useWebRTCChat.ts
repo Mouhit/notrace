@@ -35,9 +35,8 @@ export function useWebRTCChat({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const channelRef = useRef<any>(null);
   const supabaseRef = useRef<any>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSignalIdRef = useRef<number>(0);
   const [isConnected, setIsConnected] = useState(false);
+  const readyRef = useRef(false);
   const isCaller = localUsername < remoteUsername;
 
   const getSupabase = useCallback(() => {
@@ -50,18 +49,33 @@ export function useWebRTCChat({
     return supabaseRef.current;
   }, []);
 
+  // Broadcast directly through the subscribed channel (not an API route)
   const sendSignal = useCallback(async (type: string, payload: any) => {
-    await fetch("/api/chat/signal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_id: roomId, sender: localUsername, type, payload }),
-    });
+    if (!channelRef.current || !readyRef.current) {
+      console.warn("Channel not ready, signal queued:", type);
+      return;
+    }
+    try {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "signal",
+        payload: { room_id: roomId, sender: localUsername, type, payload },
+      });
+    } catch (err) {
+      console.error("Send signal error:", err);
+    }
   }, [roomId, localUsername]);
 
   const setupDataChannel = useCallback((dc: RTCDataChannel) => {
     dataChannelRef.current = dc;
-    dc.onopen = () => setIsConnected(true);
-    dc.onclose = () => setIsConnected(false);
+    dc.onopen = () => {
+      console.log("Data channel opened");
+      setIsConnected(true);
+    };
+    dc.onclose = () => {
+      console.log("Data channel closed");
+      setIsConnected(false);
+    };
     dc.onmessage = (e) => {
       try {
         const msg: ChatMessage = JSON.parse(e.data);
@@ -73,10 +87,12 @@ export function useWebRTCChat({
   const initPeerConnection = useCallback(() => {
     if (pcRef.current) return pcRef.current;
 
+    console.log("Creating RTCPeerConnection");
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
     pc.onconnectionstatechange = () => {
+      console.log("PC connectionState:", pc.connectionState);
       onConnectionChange(pc.connectionState);
       if (pc.connectionState === "connected") setIsConnected(true);
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
@@ -86,49 +102,72 @@ export function useWebRTCChat({
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
+        console.log("Got ICE candidate");
         sendSignal("ice", { candidate: e.candidate });
       }
     };
 
     if (isCaller) {
+      console.log("Creating data channel (caller)");
       const dc = pc.createDataChannel("chat", { ordered: true });
       setupDataChannel(dc);
     } else {
-      pc.ondatachannel = (e) => setupDataChannel(e.channel);
+      console.log("Waiting for data channel (callee)");
+      pc.ondatachannel = (e) => {
+        console.log("Got data channel (callee)");
+        setupDataChannel(e.channel);
+      };
     }
 
     return pc;
   }, [isCaller, onConnectionChange, sendSignal, setupDataChannel]);
 
   const startCall = useCallback(async () => {
+    console.log("Starting call");
     const pc = initPeerConnection();
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    await sendSignal("offer", { sdp: offer });
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      console.log("Sending offer");
+      await sendSignal("offer", { sdp: offer });
+    } catch (err) {
+      console.error("Start call error:", err);
+    }
   }, [initPeerConnection, sendSignal]);
 
   const handleSignal = useCallback(async (type: string, payload: any) => {
+    console.log("Received signal:", type);
+    
     if (type === "offer" && !pcRef.current) {
+      console.log("Creating PC for incoming offer");
       initPeerConnection();
     }
     const pc = pcRef.current;
-    if (!pc) return;
+    if (!pc) {
+      console.warn("PC not ready for signal:", type);
+      return;
+    }
 
     try {
       if (type === "offer") {
+        console.log("Setting remote description (offer)");
         await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        console.log("Sending answer");
         await sendSignal("answer", { sdp: answer });
       } else if (type === "answer") {
         if (pc.signalingState === "have-local-offer") {
+          console.log("Setting remote description (answer)");
           await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
         }
       } else if (type === "ice") {
         if (pc.remoteDescription) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } catch { /* ignore duplicate candidates */ }
+          } catch (err) {
+            console.warn("ICE candidate error (might be duplicate):", err);
+          }
         }
       }
     } catch (err) {
@@ -136,31 +175,11 @@ export function useWebRTCChat({
     }
   }, [initPeerConnection, sendSignal]);
 
-  const pollSignals = useCallback(async () => {
-    try {
-      const sb = getSupabase();
-      const { data } = await sb
-        .from("signaling")
-        .select("id, type, payload")
-        .eq("room_id", roomId)
-        .neq("sender", localUsername)
-        .gt("id", lastSignalIdRef.current)
-        .order("id", { ascending: true })
-        .limit(50);
-
-      if (data && data.length > 0) {
-        for (const row of data) {
-          lastSignalIdRef.current = row.id;
-          await handleSignal(row.type, row.payload);
-        }
-      }
-    } catch (err) {
-      console.error("Poll error:", err);
-    }
-  }, [roomId, localUsername, getSupabase, handleSignal]);
-
   const sendMessage = useCallback((text: string, from: string) => {
-    if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") return false;
+    if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") {
+      console.warn("Data channel not open");
+      return false;
+    }
     const msg: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       from,
@@ -172,7 +191,7 @@ export function useWebRTCChat({
   }, []);
 
   const destroy = useCallback(() => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    readyRef.current = false;
     channelRef.current?.unsubscribe();
     channelRef.current = null;
     dataChannelRef.current?.close();
@@ -185,9 +204,9 @@ export function useWebRTCChat({
   useEffect(() => {
     if (!roomId || !localUsername || !remoteUsername) return;
 
+    console.log(`Subscribing to signal:${roomId} as ${localUsername}`);
     const sb = getSupabase();
 
-    // Subscribe to realtime for ICE candidates and quick handshake
     const channel = sb.channel(`signal:${roomId}`, {
       config: { broadcast: { self: false } },
     });
@@ -198,23 +217,25 @@ export function useWebRTCChat({
       }
     });
 
-    channel.subscribe();
+    channel.subscribe((status: string) => {
+      console.log("Channel subscription status:", status);
+      if (status === "SUBSCRIBED") {
+        readyRef.current = true;
+        
+        // Caller starts after subscription is confirmed
+        if (isCaller) {
+          console.log("Caller: channel ready, starting call");
+          startCall();
+        } else {
+          console.log("Callee: channel ready, waiting for offer");
+        }
+      }
+    });
+
     channelRef.current = channel;
 
-    // ALSO poll the DB every 500ms for offers/answers (they might arrive before subscription is ready)
-    pollIntervalRef.current = setInterval(pollSignals, 500);
-
-    // Caller starts after 1.5s to give callee time to subscribe + poll
-    if (isCaller) {
-      const timer = setTimeout(startCall, 1500);
-      return () => {
-        clearTimeout(timer);
-        destroy();
-      };
-    }
-
     return () => destroy();
-  }, [roomId, localUsername, remoteUsername, isCaller, getSupabase, handleSignal, pollSignals, destroy]);
+  }, [roomId, localUsername, remoteUsername, isCaller, getSupabase, handleSignal, startCall, destroy]);
 
   return { isConnected, sendMessage, destroy };
 }
