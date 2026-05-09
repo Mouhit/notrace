@@ -48,7 +48,7 @@ export default function ChatPage() {
 
     channel.on("presence", { event: "join" }, ({ key }: any) => {
       if (key !== localUsername) {
-        setUsers((prev) => [...new Set([...prev, key])]);
+        setUsers((prev) => prev.includes(key) ? prev : [...prev, key]);
       }
     });
 
