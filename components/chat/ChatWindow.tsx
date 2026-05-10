@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic, MicOff, PhoneOff, Shield, Wifi, WifiOff, Search, QrCode, ChevronLeft, Loader2 } from "lucide-react";
+import { Send, Mic, MicOff, PhoneOff, Shield, Wifi, WifiOff, Search, ChevronLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWebRTCChat, ChatMessage } from "@/lib/chat/useWebRTCChat";
 import { useShakeDetector } from "@/lib/chat/useShakeDetector";
@@ -14,7 +14,7 @@ const T = {
   msgSent: "rgba(159,255,0,0.1)", msgRecv: "#111",
 };
 
-const EPHEMERAL_DELAY = 10000 + Math.random() * 5000; // 10-15s random
+const EPHEMERAL_DELAY = 10000 + Math.random() * 5000;
 
 interface EphemeralMessage extends ChatMessage {
   visible: boolean;
@@ -26,7 +26,6 @@ interface Props {
   onLogout: () => void;
 }
 
-// ── Discovery Panel ─────────────────────────────────────────────────────────
 function DiscoveryPanel({ onStartChat }: { onStartChat: (remote: string) => void }) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,7 +80,6 @@ function DiscoveryPanel({ onStartChat }: { onStartChat: (remote: string) => void
   );
 }
 
-// ── Message Bubble ──────────────────────────────────────────────────────────
 function MessageBubble({ msg, isSelf, timeLeft }: { msg: EphemeralMessage; isSelf: boolean; timeLeft: number }) {
   const progress = Math.max(0, timeLeft / EPHEMERAL_DELAY);
   const isUrgent = timeLeft < 3000;
@@ -108,7 +106,6 @@ function MessageBubble({ msg, isSelf, timeLeft }: { msg: EphemeralMessage; isSel
         </p>
       </div>
 
-      {/* Ephemeral progress bar */}
       <div style={{ width: "75%", height: 2, background: T.muted2, borderRadius: 99, marginTop: 4, overflow: "hidden" }}>
         <div style={{
           height: "100%", borderRadius: 99,
@@ -124,7 +121,6 @@ function MessageBubble({ msg, isSelf, timeLeft }: { msg: EphemeralMessage; isSel
   );
 }
 
-// ── Main Chat Window ─────────────────────────────────────────────────────────
 export default function ChatWindow({ username, onLogout }: Props) {
   const [view, setView] = useState<"discover" | "chat">("discover");
   const [remoteUsername, setRemoteUsername] = useState("");
@@ -139,7 +135,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
 
   const roomId = [username, remoteUsername].sort().join(":");
 
-  // ── Ephemeral message management ──────────────────────────────────────────
   const addMessage = useCallback((msg: ChatMessage) => {
     const ephemeral: EphemeralMessage = {
       ...msg, visible: true, expiresAt: Date.now() + EPHEMERAL_DELAY,
@@ -148,7 +143,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
     setMessages((prev) => [...prev, ephemeral]);
     setTimers((prev) => new Map(prev).set(msg.id, EPHEMERAL_DELAY));
 
-    // Countdown timer
     const interval = setInterval(() => {
       setTimers((prev) => {
         const next = new Map(prev);
@@ -157,7 +151,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
           next.delete(msg.id);
           clearInterval(interval);
           timersRef.current.delete(msg.id);
-          // Fade out then remove
           setMessages((m) => m.map((x) => x.id === msg.id ? { ...x, visible: false } : x));
           setTimeout(() => setMessages((m) => m.filter((x) => x.id !== msg.id)), 500);
         } else {
@@ -170,11 +163,9 @@ export default function ChatWindow({ username, onLogout }: Props) {
     timersRef.current.set(msg.id, interval);
   }, []);
 
-  // ── Shake to Ghost ────────────────────────────────────────────────────────
   useShakeDetector({
     threshold: 25,
     onShake: useCallback(() => {
-      // Clear all timers and messages
       timersRef.current.forEach((t) => clearInterval(t));
       timersRef.current.clear();
       setMessages([]);
@@ -183,7 +174,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
     }, []),
   });
 
-  // ── WebRTC ────────────────────────────────────────────────────────────────
   const { isConnected, sendMessage, destroy } = useWebRTCChat({
     roomId,
     localUsername: username,
@@ -194,12 +184,10 @@ export default function ChatWindow({ username, onLogout }: Props) {
     },
   });
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       timersRef.current.forEach((t) => clearInterval(t));
@@ -216,7 +204,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
     }
   };
 
-  // ── Voice recording ───────────────────────────────────────────────────────
   const handleVoiceToggle = async () => {
     if (recording) {
       mediaRecorderRef.current?.stop();
@@ -248,7 +235,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
       mr.start();
       mediaRecorderRef.current = mr;
       setRecording(true);
-      // Auto-stop after 60s
       setTimeout(() => { mr.state === "recording" && mr.stop(); setRecording(false); }, 60000);
     } catch {
       toast.error("Microphone access denied");
@@ -283,7 +269,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
         ::-webkit-scrollbar-thumb { background: ${T.muted2}; border-radius: 99px; }
       `}</style>
 
-      {/* ── Header ── */}
       <div style={{ padding: "14px 18px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: T.card }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {view === "chat" && (
@@ -320,7 +305,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
         </div>
       </div>
 
-      {/* ── Discover View ── */}
       {view === "discover" && (
         <div style={{ flex: 1, padding: 20, overflowY: "auto" }}>
           <p style={{ fontSize: 11, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Find a user to chat</p>
@@ -336,10 +320,8 @@ export default function ChatWindow({ username, onLogout }: Props) {
         </div>
       )}
 
-      {/* ── Chat View ── */}
       {view === "chat" && (
         <>
-          {/* Connection pending */}
           {!isConnected && (
             <div style={{ padding: "10px 18px", background: "rgba(159,255,0,0.04)", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
               <Loader2 size={13} style={{ color: T.accent, animation: "spin 1s linear infinite" }} />
@@ -347,7 +329,6 @@ export default function ChatWindow({ username, onLogout }: Props) {
             </div>
           )}
 
-          {/* Messages */}
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px" }}>
             {messages.length === 0 && isConnected && (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
@@ -367,12 +348,10 @@ export default function ChatWindow({ username, onLogout }: Props) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Ephemeral notice */}
           <div style={{ padding: "6px 16px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "center" }}>
             <p style={{ fontSize: 10, color: T.muted2, margin: 0 }}>⏱ Messages auto-delete in 10-15s · Not stored anywhere</p>
           </div>
 
-          {/* Input */}
           <div style={{ padding: "12px 14px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "center" }}>
             <button onClick={handleVoiceToggle}
               style={{ padding: "10px", borderRadius: 10, background: recording ? "rgba(255,68,68,0.1)" : T.accentDim, border: `1px solid ${recording ? "rgba(255,68,68,0.3)" : T.accentBorder}`, cursor: "pointer", color: recording ? "#ff4444" : T.accent, display: "flex" }}>

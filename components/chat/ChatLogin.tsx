@@ -1,21 +1,17 @@
 "use client";
 import { useState } from "react";
-import { Eye, EyeOff, Loader2, Shield, AlertTriangle, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Loader2, Shield, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { hashPassword, saveChatIdentity, generateKeypair, mnemonicToSeed } from "@/lib/chat/crypto";
+import { hashPassword, saveChatIdentity } from "@/lib/chat/crypto";
 
 const T = {
-  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a",
-  accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
-  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0",
-  muted: "#666", muted2: "#444", error: "#ff4444",
-  font: "'JetBrains Mono', monospace",
+  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a", accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
+  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0", muted: "#666", error: "#ff4444", font: "'JetBrains Mono', monospace",
 };
 
 const inp: React.CSSProperties = {
-  width: "100%", padding: "12px 16px", background: "#0a0a0a",
-  border: `1px solid ${T.border}`, borderRadius: 10, color: T.text,
-  fontSize: 14, fontFamily: T.font, outline: "none", boxSizing: "border-box",
+  width: "100%", padding: "12px 16px", background: "#0a0a0a", border: `1px solid ${T.border}`, borderRadius: 10,
+  color: T.text, fontSize: 14, fontFamily: T.font, outline: "none", boxSizing: "border-box",
 };
 
 interface Props {
@@ -23,24 +19,12 @@ interface Props {
   onSwitchToRegister: () => void;
 }
 
-type View = "login" | "restore";
-
 export default function ChatLogin({ onSuccess, onSwitchToRegister }: Props) {
-  const [view, setView] = useState<View>("login");
-
-  // Login state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Restore state
-  const [restoreUsername, setRestoreUsername] = useState("");
-  const [restorePassword, setRestorePassword] = useState("");
-  const [restoreMnemonic, setRestoreMnemonic] = useState("");
-  const [restoreLoading, setRestoreLoading] = useState(false);
-  const [restoreError, setRestoreError] = useState("");
 
   const handleLogin = async () => {
     setError("");
@@ -58,60 +42,17 @@ export default function ChatLogin({ onSuccess, onSwitchToRegister }: Props) {
 
       const storedPrivKey = localStorage.getItem("notrace-chat-privkey");
       if (!storedPrivKey) {
-        setError("Private key not found on this device. Use 'Restore from phrase' below.");
+        setError("Private key not found on this device. Use 'Create identity' to register.");
         return;
       }
 
-      saveChatIdentity(data.username, {
-        publicKey: data.public_key,
-        privateKey: storedPrivKey,
-      });
-
+      saveChatIdentity(data.username, { publicKey: data.public_key, privateKey: storedPrivKey });
       toast.success(`Welcome back, ${data.username}!`);
       onSuccess(data.username);
     } catch {
       setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRestore = async () => {
-    setRestoreError("");
-    if (!restoreUsername.trim()) { setRestoreError("Username required"); return; }
-    if (!restorePassword) { setRestoreError("Password required"); return; }
-    if (restoreMnemonic.trim().split(/\s+/).length < 12) {
-      setRestoreError("Recovery phrase must be 12 words"); return;
-    }
-    setRestoreLoading(true);
-    try {
-      // Verify credentials with server
-      const pwHash = await hashPassword(restorePassword, restoreUsername.trim());
-      const res = await fetch("/api/chat/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: restoreUsername.trim(), password_hash: pwHash }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setRestoreError(data.error || "Invalid credentials"); return; }
-
-      // Regenerate keypair from mnemonic
-      const seed = await mnemonicToSeed(restoreMnemonic.trim().toLowerCase());
-      const keypair = await generateKeypair(seed);
-
-      // Verify public key matches what's stored on server
-      if (keypair.publicKey !== data.public_key) {
-        setRestoreError("Recovery phrase doesn't match this account. Check and try again.");
-        return;
-      }
-
-      saveChatIdentity(data.username, keypair);
-      toast.success(`Identity restored! Welcome back, ${data.username}!`);
-      onSuccess(data.username);
-    } catch (err) {
-      setRestoreError("Restore failed. Check your phrase and try again.");
-    } finally {
-      setRestoreLoading(false);
     }
   };
 
@@ -126,129 +67,54 @@ export default function ChatLogin({ onSuccess, onSwitchToRegister }: Props) {
       `}</style>
 
       <div className="fade-up" style={{ width: "100%", maxWidth: 420 }}>
-
-        {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            {view === "login"
-              ? <Shield style={{ color: T.accent }} size={24} />
-              : <KeyRound style={{ color: T.accent }} size={24} />
-            }
+            <Shield style={{ color: T.accent }} size={24} />
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: "0 0 5px" }}>
-            {view === "login" ? "Sign In" : "Restore Identity"}
-          </h1>
-          <p style={{ fontSize: 12, color: T.muted, margin: 0 }}>
-            {view === "login"
-              ? "Enter your credentials to access NoTrace Chat"
-              : "Use your 12-word recovery phrase to restore your keys"
-            }
-          </p>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: "0 0 5px" }}>Sign In</h1>
+          <p style={{ fontSize: 12, color: T.muted, margin: 0 }}>Enter your credentials to access NoTrace Chat</p>
         </div>
 
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 26 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Username</label>
+              <input className="chat-inp" style={inp} placeholder="your_username" value={username}
+                onChange={(e) => setUsername(e.target.value)} autoComplete="off" spellCheck={false} />
+            </div>
 
-          {/* ── LOGIN VIEW ── */}
-          {view === "login" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Username</label>
-                <input className="chat-inp" style={inp} placeholder="your_username" value={username}
-                  onChange={(e) => setUsername(e.target.value)} autoComplete="off" spellCheck={false} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Password</label>
-                <div style={{ position: "relative" }}>
-                  <input className="chat-inp" style={{ ...inp, paddingRight: 44 }} type={showPw ? "text" : "password"}
-                    placeholder="Your password" value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-                  <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.muted }}>
-                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "9px 12px", background: "rgba(255,68,68,0.07)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 8 }}>
-                  <AlertTriangle size={13} style={{ color: T.error, flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 12, color: T.error, margin: 0 }}>{error}</p>
-                </div>
-              )}
-
-              <button onClick={handleLogin} disabled={loading}
-                style={{ padding: "13px", borderRadius: 10, background: T.accent, color: "#000", fontWeight: 700, fontSize: 14, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: T.font }}>
-                {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Signing in...</> : "Sign In →"}
-              </button>
-
-              {/* Restore option */}
-              <button onClick={() => { setView("restore"); setError(""); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px", borderRadius: 10, background: "transparent", border: `1px solid ${T.border}`, color: T.muted, fontSize: 12, cursor: "pointer", fontFamily: T.font }}>
-                <KeyRound size={13} /> Restore from recovery phrase
-              </button>
-
-              <p style={{ textAlign: "center", fontSize: 12, color: T.muted, margin: 0 }}>
-                New here?{" "}
-                <button onClick={onSwitchToRegister} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.font, fontSize: 12, padding: 0 }}>
-                  Create identity
+            <div>
+              <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Password</label>
+              <div style={{ position: "relative" }}>
+                <input className="chat-inp" style={{ ...inp, paddingRight: 44 }} type={showPw ? "text" : "password"}
+                  placeholder="Your password" value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+                <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.muted }}>
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
-              </p>
+              </div>
             </div>
-          )}
 
-          {/* ── RESTORE VIEW ── */}
-          {view === "restore" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ padding: "10px 14px", background: "rgba(159,255,0,0.05)", border: `1px solid ${T.accentBorder}`, borderRadius: 8 }}>
-                <p style={{ fontSize: 12, color: T.accent, margin: 0, lineHeight: 1.65 }}>
-                  This re-generates your private key from your 12-word phrase and saves it to this device.
-                </p>
+            {error && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "9px 12px", background: "rgba(255,68,68,0.07)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 8 }}>
+                <AlertTriangle size={13} style={{ color: T.error, flexShrink: 0 }} />
+                <p style={{ fontSize: 12, color: T.error, margin: 0 }}>{error}</p>
               </div>
+            )}
 
-              <div>
-                <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Username</label>
-                <input className="chat-inp" style={inp} placeholder="your_username" value={restoreUsername}
-                  onChange={(e) => setRestoreUsername(e.target.value)} autoComplete="off" spellCheck={false} />
-              </div>
+            <button onClick={handleLogin} disabled={loading}
+              style={{ padding: "13px", borderRadius: 10, background: T.accent, color: "#000", fontWeight: 700, fontSize: 14, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: T.font }}>
+              {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Signing in...</> : "Sign In →"}
+            </button>
 
-              <div>
-                <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Password</label>
-                <input className="chat-inp" style={inp} type="password" placeholder="Your password" value={restorePassword}
-                  onChange={(e) => setRestorePassword(e.target.value)} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>12-Word Recovery Phrase</label>
-                <textarea className="chat-inp" style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.7 }}
-                  placeholder="word1 word2 word3 ... word12"
-                  value={restoreMnemonic}
-                  onChange={(e) => setRestoreMnemonic(e.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-
-              {restoreError && (
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "9px 12px", background: "rgba(255,68,68,0.07)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 8 }}>
-                  <AlertTriangle size={13} style={{ color: T.error, flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 12, color: T.error, margin: 0 }}>{restoreError}</p>
-                </div>
-              )}
-
-              <button onClick={handleRestore} disabled={restoreLoading}
-                style={{ padding: "13px", borderRadius: 10, background: T.accent, color: "#000", fontWeight: 700, fontSize: 14, border: "none", cursor: restoreLoading ? "not-allowed" : "pointer", opacity: restoreLoading ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: T.font }}>
-                {restoreLoading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Restoring...</> : "Restore Identity →"}
-              </button>
-
-              <button onClick={() => { setView("login"); setRestoreError(""); }}
-                style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer", fontFamily: T.font }}>
-                ← Back to sign in
-              </button>
-            </div>
-          )}
+            <p style={{ textAlign: "center", fontSize: 12, color: T.muted, margin: 0 }}>
+              New here? <button onClick={onSwitchToRegister} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.font, fontSize: 12, padding: 0 }}>Create identity</button>
+            </p>
+          </div>
         </div>
 
-        <p style={{ textAlign: "center", fontSize: 10, color: T.muted2, marginTop: 14 }}>
+        <p style={{ textAlign: "center", fontSize: 10, color: T.muted, marginTop: 14 }}>
           🔐 Your private key stays on this device only
         </p>
       </div>

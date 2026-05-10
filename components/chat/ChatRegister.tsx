@@ -2,23 +2,16 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Copy, CheckCircle2, Loader2, Shield, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import {
-  generateMnemonic, mnemonicToSeed, generateKeypair,
-  hashPassword, saveChatIdentity, STORAGE_KEYS,
-} from "@/lib/chat/crypto";
+import { generateMnemonic, mnemonicToSeed, generateKeypair, hashPassword, saveChatIdentity, STORAGE_KEYS } from "@/lib/chat/crypto";
 
 const T = {
-  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a",
-  accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
-  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0",
-  muted: "#666", muted2: "#444", error: "#ff4444",
-  font: "'JetBrains Mono', monospace",
+  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a", accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
+  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0", muted: "#666", muted2: "#444", error: "#ff4444", font: "'JetBrains Mono', monospace",
 };
 
 const inp: React.CSSProperties = {
-  width: "100%", padding: "12px 16px", background: "#0a0a0a",
-  border: `1px solid ${T.border}`, borderRadius: 10, color: T.text,
-  fontSize: 14, fontFamily: T.font, outline: "none", boxSizing: "border-box",
+  width: "100%", padding: "12px 16px", background: "#0a0a0a", border: `1px solid ${T.border}`, borderRadius: 10,
+  color: T.text, fontSize: 14, fontFamily: T.font, outline: "none", boxSizing: "border-box",
 };
 
 interface Props {
@@ -109,8 +102,6 @@ export default function ChatRegister({ onSuccess, onSwitchToLogin }: Props) {
       `}</style>
 
       <div className="fade-up" style={{ width: "100%", maxWidth: 460 }}>
-
-        {/* Logo + title */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
             <Shield style={{ color: T.accent }} size={24} />
@@ -129,8 +120,6 @@ export default function ChatRegister({ onSuccess, onSwitchToLogin }: Props) {
         </div>
 
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 26 }}>
-
-          {/* ── STEP 1: Username + Password ── */}
           {step === "form" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -168,13 +157,11 @@ export default function ChatRegister({ onSuccess, onSwitchToLogin }: Props) {
               </button>
 
               <p style={{ textAlign: "center", fontSize: 12, color: T.muted, margin: 0 }}>
-                Already registered?{" "}
-                <button onClick={onSwitchToLogin} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.font, fontSize: 12, padding: 0 }}>Sign in</button>
+                Already registered? <button onClick={onSwitchToLogin} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.font, fontSize: 12, padding: 0 }}>Sign in</button>
               </p>
             </div>
           )}
 
-          {/* ── STEP 2: Show Mnemonic ── */}
           {step === "mnemonic" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ padding: "10px 14px", background: "rgba(159,255,0,0.05)", border: `1px solid ${T.accentBorder}`, borderRadius: 8 }}>
@@ -208,7 +195,6 @@ export default function ChatRegister({ onSuccess, onSwitchToLogin }: Props) {
             </div>
           )}
 
-          {/* ── STEP 3: Confirm Mnemonic ── */}
           {step === "confirm" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <p style={{ fontSize: 13, color: T.muted, margin: 0 }}>Type your 12-word recovery phrase to confirm:</p>
@@ -231,7 +217,6 @@ export default function ChatRegister({ onSuccess, onSwitchToLogin }: Props) {
             </div>
           )}
 
-          {/* ── STEP 4: Registering ── */}
           {step === "registering" && (
             <div style={{ textAlign: "center", padding: "24px 0" }}>
               <Loader2 size={36} style={{ color: T.accent, animation: "spin 1s linear infinite", display: "block", margin: "0 auto 16px" }} />

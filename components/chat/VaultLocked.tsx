@@ -1,13 +1,11 @@
 "use client";
 import { useState } from "react";
 import { Lock, Eye, EyeOff, AlertTriangle } from "lucide-react";
-import { hashPassword, loadChatIdentity } from "@/lib/chat/crypto";
+import { hashPassword } from "@/lib/chat/crypto";
 
 const T = {
-  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a",
-  accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
-  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0",
-  muted: "#666", error: "#ff4444", font: "'JetBrains Mono', monospace",
+  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a", accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
+  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0", muted: "#666", error: "#ff4444", font: "'JetBrains Mono', monospace",
 };
 
 interface Props {
@@ -26,7 +24,6 @@ export default function VaultLocked({ username, onUnlock }: Props) {
     setLoading(true);
     setError("");
     try {
-      // Verify by re-hashing and checking against server
       const pwHash = await hashPassword(password, username);
       const res = await fetch("/api/chat/login", {
         method: "POST",
@@ -54,7 +51,6 @@ export default function VaultLocked({ username, onUnlock }: Props) {
       <style>{`@keyframes pulse-lock { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
 
       <div style={{ textAlign: "center", width: "100%", maxWidth: 380, padding: 24 }}>
-        {/* Pulsing lock */}
         <div style={{ animation: "pulse-lock 2s ease-in-out infinite", marginBottom: 24 }}>
           <div style={{ width: 72, height: 72, borderRadius: 20, background: "rgba(159,255,0,0.08)", border: "1px solid rgba(159,255,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
             <Lock size={32} style={{ color: "#9fff00" }} />

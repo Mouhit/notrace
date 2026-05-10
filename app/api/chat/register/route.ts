@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Validate username: 3-20 chars, alphanumeric + underscore only
+    // Validate username: 3-20 chars, alphanumeric + underscore
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
       return NextResponse.json({
         error: "Username must be 3-20 characters, letters, numbers, underscores only"
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient();
 
-    // Check if username already taken
+    // Check if username already exists
     const { data: existing } = await supabase
       .from("profiles")
       .select("username")
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Username already taken" }, { status: 409 });
     }
 
-    // Save profile — only public key stored, private key stays in browser
+    // Insert new profile
     const { error } = await supabase.from("profiles").insert({
       username: username.trim(),
       password_hash,

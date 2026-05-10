@@ -36,7 +36,6 @@ export default function Header() {
             </span>
           </div>
 
-          {/* P2P Chat link */}
           <Link href="/chat"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-surface-border text-xs text-slate-400 hover:border-brand-border hover:text-brand transition-all"
           >
