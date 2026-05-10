@@ -2,15 +2,14 @@
 import { useEffect, useRef } from "react";
 
 interface ShakeOptions {
-  threshold?: number;   // acceleration threshold (default 25)
-  timeout?: number;     // cooldown between triggers in ms (default 1500)
+  threshold?: number;
+  timeout?: number;
   onShake: () => void;
 }
 
 /**
- * Detects rapid device shake using DeviceMotionEvent.
- * Triggers onShake() when acceleration exceeds threshold.
- * On iOS 13+ requires permission — we handle that here.
+ * Detects device shake using DeviceMotionEvent.
+ * On iOS 13+ requires permission.
  */
 export function useShakeDetector({ threshold = 25, timeout = 1500, onShake }: ShakeOptions) {
   const lastTime = useRef(0);
@@ -29,8 +28,7 @@ export function useShakeDetector({ threshold = 25, timeout = 1500, onShake }: Sh
 
       const { x = 0, y = 0, z = 0 } = acc;
       const now = Date.now();
-
-      if (now - lastTime.current < 100) return; // sample at ~10Hz
+      if (now - lastTime.current < 100) return;
       lastTime.current = now;
 
       const deltaX = Math.abs((x ?? 0) - lastX.current);
@@ -50,7 +48,6 @@ export function useShakeDetector({ threshold = 25, timeout = 1500, onShake }: Sh
       }
     };
 
-    // iOS 13+ requires explicit permission
     const requestPermission = async () => {
       if (typeof (DeviceMotionEvent as any).requestPermission === "function") {
         try {
@@ -59,7 +56,7 @@ export function useShakeDetector({ threshold = 25, timeout = 1500, onShake }: Sh
             window.addEventListener("devicemotion", handleMotion);
           }
         } catch {
-          // Permission denied — shake disabled silently
+          // Permission denied silently
         }
       } else {
         window.addEventListener("devicemotion", handleMotion);
