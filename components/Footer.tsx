@@ -7,11 +7,19 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-surface-border py-5 px-5">
-      <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-xs text-slate-600">
           © {new Date().getFullYear()} NoTrace · {t("footer", "copy")}
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap justify-center">
+          <Link href="/privacy-policy" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            {t("footer", "privacy")}
+          </Link>
+          <span className="text-slate-700">·</span>
+          <Link href="/refund-policy" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            {t("footer", "refund")}
+          </Link>
+          <span className="text-slate-700">·</span>
           <Link href="/admin" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
             {t("footer", "admin")}
           </Link>
