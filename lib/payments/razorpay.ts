@@ -40,12 +40,38 @@ export async function createRazorpayOrder(
     // Convert amount to smallest currency unit (paise for INR, cents for USD)
     const amountInSmallestUnit = Math.round(amount * 100);
 
-    const order: RazorpayOrderResponse = await razorpay.orders.create({
+    const rawOrder = await razorpay.orders.create({
       amount: amountInSmallestUnit,
       currency: currency,
       receipt: receipt,
       notes: notes as Record<string, any>,
     });
+
+    // Convert SDK response to our typed interface
+    // Razorpay SDK returns string | number for numeric fields, we ensure they're numbers
+    const order: RazorpayOrderResponse = {
+      id: String(rawOrder.id),
+      entity: String(rawOrder.entity),
+      amount: typeof rawOrder.amount === "number" 
+        ? rawOrder.amount 
+        : parseInt(String(rawOrder.amount), 10),
+      amount_paid: typeof rawOrder.amount_paid === "number" 
+        ? rawOrder.amount_paid 
+        : parseInt(String(rawOrder.amount_paid), 10),
+      amount_due: typeof rawOrder.amount_due === "number" 
+        ? rawOrder.amount_due 
+        : parseInt(String(rawOrder.amount_due), 10),
+      currency: String(rawOrder.currency),
+      receipt: String(rawOrder.receipt),
+      status: String(rawOrder.status),
+      attempts: typeof rawOrder.attempts === "number" 
+        ? rawOrder.attempts 
+        : 0,
+      notes: rawOrder.notes as Record<string, any> | undefined,
+      created_at: typeof rawOrder.created_at === "number" 
+        ? rawOrder.created_at 
+        : 0,
+    };
 
     return order;
   } catch (error) {
