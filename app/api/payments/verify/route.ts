@@ -78,16 +78,18 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Get payment details from Razorpay with proper typing
-    const paymentDetails: PaymentDetails = await getPaymentDetails(
-      razorpayPaymentId
-    );
+    // Get payment details from Razorpay
+    const rawPaymentDetails = await getPaymentDetails(razorpayPaymentId);
 
-    // Ensure amount is a number before arithmetic operation
-    const amountPaid =
-      typeof paymentDetails.amount === "number"
-        ? paymentDetails.amount / 100
+    // Convert and ensure amount is a number
+    const amount =
+      typeof rawPaymentDetails.amount === "number"
+        ? rawPaymentDetails.amount
+        : typeof rawPaymentDetails.amount === "string"
+        ? parseFloat(rawPaymentDetails.amount)
         : 0;
+
+    const amountPaid = amount / 100;
 
     // Update payment record
     const { error: updateError } = await supabase
@@ -96,8 +98,8 @@ export async function PUT(req: NextRequest) {
         razorpay_payment_id: razorpayPaymentId,
         razorpay_signature: razorpaySignature,
         status:
-          paymentDetails.status === "captured" ||
-          paymentDetails.status === "authorized"
+          rawPaymentDetails.status === "captured" ||
+          rawPaymentDetails.status === "authorized"
             ? "completed"
             : "failed",
         amount_paid: amountPaid,
@@ -114,8 +116,8 @@ export async function PUT(req: NextRequest) {
       orderId: orderId,
       paymentId: razorpayPaymentId,
       status:
-        paymentDetails.status === "captured" ||
-        paymentDetails.status === "authorized"
+        rawPaymentDetails.status === "captured" ||
+        rawPaymentDetails.status === "authorized"
           ? "completed"
           : "failed",
       amount: amountPaid,
