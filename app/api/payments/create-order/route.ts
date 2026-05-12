@@ -4,6 +4,21 @@ import { createRazorpayOrder } from "@/lib/payments/razorpay";
 import { PaymentRequest } from "@/types/payments";
 import { v4 as uuidv4 } from "uuid";
 
+// Type definition for Razorpay Order Response
+interface RazorpayOrderResponse {
+  id: string;
+  entity: string;
+  amount: number;
+  amount_paid: number;
+  amount_due: number;
+  currency: string;
+  receipt: string;
+  status: string;
+  attempts: number;
+  notes?: Record<string, any>;
+  created_at: number;
+}
+
 /**
  * POST /api/payments/create-order
  * Admin creates a payment order for a client
@@ -45,7 +60,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invoice number already exists" }, { status: 409 });
     }
 
-    const razorpayOrder = await createRazorpayOrder(
+    // Type the response properly
+    const razorpayOrder: RazorpayOrderResponse = await createRazorpayOrder(
       body.amount,
       body.currency,
       body.invoiceNumber,
@@ -57,6 +73,11 @@ export async function POST(req: NextRequest) {
         clientName: body.clientName || "",
       }
     );
+
+    // Verify we got a valid order response
+    if (!razorpayOrder || !razorpayOrder.id) {
+      throw new Error("Invalid Razorpay order response");
+    }
 
     const { error: dbError } = await supabase.from("payments").insert({
       invoice_number: body.invoiceNumber,
