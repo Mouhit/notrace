@@ -1,88 +1,88 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 
 /**
- * POST /api/chat/signal — Store WebRTC signal (offer/answer/ICE)
- * 
- * Uses database persistence instead of Realtime broadcast.
- * This ensures signals don't get lost if receiver isn't subscribed yet.
+ * POST /api/chat/signal
+ * Store WebRTC signal (offer, answer, ice-candidate)
+ * GET /api/chat/signal?roomId=xxx&receiver=yyy
+ * Poll for signals directed to this user
  */
+
 export async function POST(req: NextRequest) {
   try {
-    const { room_id, sender, receiver, type, payload } = await req.json();
+    const { roomId, sender, receiver, type, payload } = await req.json();
 
-    if (!room_id || !sender || !receiver || !type || !payload) {
+    if (!roomId || !sender || !receiver || !type || !payload) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (!["offer", "answer", "ice"].includes(type)) {
+    if (!["offer", "answer", "ice-candidate"].includes(type)) {
       return NextResponse.json({ error: "Invalid signal type" }, { status: 400 });
     }
 
     const supabase = createServerClient();
 
-    // Store signal in database — stays for 90 seconds then auto-deletes
-    const { error } = await supabase.from("signaling").insert({
-      room_id,
-      sender: sender.trim().toLowerCase(),
-      receiver: receiver.trim().toLowerCase(),
-      type,
-      payload,
-      consumed: false,
-    });
+    const { data: signal, error } = await supabase
+      .from("chat_signals")
+      .insert({
+        room_id: roomId,
+        sender,
+        receiver,
+        type,
+        payload,
+      })
+      .select()
+      .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Signal error:", err);
-    return NextResponse.json({ error: "Signal failed" }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      signalId: signal.id,
+    });
+  } catch (error) {
+    console.error("POST /api/chat/signal error:", error);
+    return NextResponse.json({ error: "Failed to store signal" }, { status: 500 });
   }
 }
 
-/**
- * GET /api/chat/signal?receiver=username&room_id=room — Poll for signals
- * 
- * Client polls every 500ms to check for new signals.
- * Marks as consumed after reading.
- */
 export async function GET(req: NextRequest) {
   try {
+    const roomId = req.nextUrl.searchParams.get("roomId");
     const receiver = req.nextUrl.searchParams.get("receiver");
-    const room_id = req.nextUrl.searchParams.get("room_id");
 
-    if (!receiver || !room_id) {
-      return NextResponse.json({ error: "Missing receiver or room_id" }, { status: 400 });
+    if (!roomId || !receiver) {
+      return NextResponse.json({ error: "roomId and receiver parameters required" }, { status: 400 });
     }
 
     const supabase = createServerClient();
 
-    // Get unconsumed signals for this receiver
+    // Get unconsumed signals for this receiver in this room
     const { data: signals, error } = await supabase
-      .from("signaling")
-      .select("*")
-      .eq("room_id", room_id)
-      .eq("receiver", receiver.toLowerCase())
+      .from("chat_signals")
+      .select("id, room_id, sender, receiver, type, payload, created_at")
+      .eq("room_id", roomId)
+      .eq("receiver", receiver)
       .eq("consumed", false)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
 
     if (signals && signals.length > 0) {
-      // Mark as consumed
+      // Mark signals as consumed
+      const signalIds = signals.map((s) => s.id);
       await supabase
-        .from("signaling")
+        .from("chat_signals")
         .update({ consumed: true })
-        .eq("room_id", room_id)
-        .eq("receiver", receiver.toLowerCase())
-        .eq("consumed", false);
-
-      return NextResponse.json({ signals });
+        .in("id", signalIds);
     }
 
-    return NextResponse.json({ signals: [] });
-  } catch (err) {
-    console.error("Poll error:", err);
-    return NextResponse.json({ error: "Poll failed" }, { status: 500 });
+    return NextResponse.json({
+      signals: signals || [],
+      count: signals?.length || 0,
+    });
+  } catch (error) {
+    console.error("GET /api/chat/signal error:", error);
+    return NextResponse.json({ error: "Failed to fetch signals" }, { status: 500 });
   }
 }
