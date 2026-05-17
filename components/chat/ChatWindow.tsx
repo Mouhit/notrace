@@ -62,6 +62,16 @@ export default function ChatWindow({ username, onLogout }: ChatWindowProps) {
     }
   };
 
+  // Reject request (returns boolean, wrap to return void)
+  const handleRejectRequest = async (requestId: string): Promise<void> => {
+    await rejectRequest(requestId);
+  };
+
+  // Cancel request (returns boolean, wrap to return void)
+  const handleCancelRequest = async (requestId: string): Promise<void> => {
+    await cancelRequest(requestId);
+  };
+
   // End chat
   const handleEndChat = async () => {
     if (!activeChat) return;
@@ -241,11 +251,11 @@ export default function ChatWindow({ username, onLogout }: ChatWindowProps) {
               <IncomingRequests
                 requests={incomingRequests}
                 onAccept={handleAcceptRequest}
-                onReject={rejectRequest}
+                onReject={handleRejectRequest}
               />
             </div>
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 24 }}>
-              <OutgoingRequests requests={outgoingRequests} onCancel={cancelRequest} />
+              <OutgoingRequests requests={outgoingRequests} onCancel={handleCancelRequest} />
             </div>
           </div>
         )}
