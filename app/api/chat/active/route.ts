@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@/lib/supabase";
 
 /**
  * GET /api/chat/active?username=alice

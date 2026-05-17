@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@/lib/supabase";
 
 /**
  * POST /api/chat/signal
