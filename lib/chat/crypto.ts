@@ -136,3 +136,43 @@ export function hexToBytes(hex: string): Uint8Array {
   }
   return result;
 }
+/**
+ * Add this function to your lib/chat/crypto.ts file
+ * This generates the RSA key pair for the user
+ */
+
+export async function generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+  try {
+    // Generate RSA key pair
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true, // extractable
+      ["encrypt", "decrypt"]
+    );
+
+    // Export public key
+    const publicKeyData = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+    const publicKeyHex = Array.from(new Uint8Array(publicKeyData))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    // Export private key
+    const privateKeyData = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const privateKeyHex = Array.from(new Uint8Array(privateKeyData))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    return {
+      publicKey: publicKeyHex,
+      privateKey: privateKeyHex,
+    };
+  } catch (error) {
+    console.error("Key pair generation error:", error);
+    throw new Error("Failed to generate key pair");
+  }
+}

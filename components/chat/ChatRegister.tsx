@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Users, LogIn, UserPlus } from "lucide-react";
+import { Users, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import PassphraseSetup from "./PassphraseSetup";
 import { generateKeyPair } from "@/lib/chat/crypto";
@@ -16,7 +16,7 @@ const T = {
 };
 
 interface ChatRegisterProps {
-  onRegistered: (username: string) => void;
+  onRegistered: (username: string) => void;  // Changed from onSuccess
   onSwitchToLogin: () => void;
 }
 
