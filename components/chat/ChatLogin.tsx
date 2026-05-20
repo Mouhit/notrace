@@ -1,123 +1,175 @@
 "use client";
 import { useState } from "react";
-import { Eye, EyeOff, Loader2, Shield, AlertTriangle } from "lucide-react";
+import { LogIn, UserCheck } from "lucide-react";
 import { toast } from "sonner";
-import { hashPassword, saveChatIdentity } from "@/lib/chat/crypto";
+import PassphraseRecovery from "./PassphraseRecovery";
 
 const T = {
-  bg: "#050505", card: "#0e0e0e", border: "#1a1a1a", accent: "#9fff00", accentDim: "rgba(159,255,0,0.12)",
-  accentBorder: "rgba(159,255,0,0.25)", text: "#f0f0f0", muted: "#666", error: "#ff4444", font: "'JetBrains Mono', monospace",
+  bg: "#050505",
+  card: "#0e0e0e",
+  border: "#1a1a1a",
+  accent: "#9fff00",
+  text: "#f0f0f0",
+  muted: "#666",
+  font: "'JetBrains Mono', monospace",
 };
 
-const inp: React.CSSProperties = {
-  width: "100%", padding: "12px 16px", background: "#0a0a0a", border: `1px solid ${T.border}`, borderRadius: 10,
-  color: T.text, fontSize: 14, fontFamily: T.font, outline: "none", boxSizing: "border-box",
-};
-
-interface Props {
-  onSuccess: (username: string) => void;
+interface ChatLoginProps {
+  onLoggedIn: (username: string, privateKey: string) => void;
   onSwitchToRegister: () => void;
 }
 
-export default function ChatLogin({ onSuccess, onSwitchToRegister }: Props) {
+export default function ChatLogin({ onLoggedIn, onSwitchToRegister }: ChatLoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [showPassphraseRecovery, setShowPassphraseRecovery] = useState(false);
 
-  const handleLogin = async () => {
-    setError("");
-    if (!username.trim() || !password) { setError("Username and password required"); return; }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!username || !password) {
+      toast.error("Fill all fields");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const pwHash = await hashPassword(password, username.trim());
       const res = await fetch("/api/chat/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password_hash: pwHash }),
+        body: JSON.stringify({ username, password }),
       });
+
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Invalid credentials"); return; }
 
-      const storedPrivKey = localStorage.getItem("notrace-chat-privkey");
-      if (!storedPrivKey) {
-        setError("Private key not found on this device. Use 'Create identity' to register.");
-        return;
+      if (res.ok) {
+        // Check if private key is in IndexedDB
+        const db = await openIndexedDB();
+        const storedKey = await getPrivateKeyFromDB(db, username);
+
+        if (storedKey) {
+          // Key found locally
+          toast.success("Login successful!");
+          onLoggedIn(username, storedKey);
+        } else {
+          // Key not found - need passphrase recovery
+          toast.info("Key not found on this device. Please recover with passphrase.");
+          setShowPassphraseRecovery(true);
+        }
+      } else {
+        toast.error(data.error || "Login failed");
       }
-
-      saveChatIdentity(data.username, { publicKey: data.public_key, privateKey: storedPrivKey });
-      toast.success(`Welcome back, ${data.username}!`);
-      onSuccess(data.username);
-    } catch {
-      setError("Login failed. Please try again.");
+    } catch (error) {
+      toast.error("Network error");
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyRecovered = async (privateKey: string) => {
+    // Store in IndexedDB
+    const db = await openIndexedDB();
+    await storePrivateKeyInDB(db, username, privateKey);
+    toast.success("Key recovered and saved!");
+    onLoggedIn(username, privateKey);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: T.font }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        .chat-inp:focus { border-color: ${T.accent} !important; box-shadow: 0 0 0 2px rgba(159,255,0,0.1) !important; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        .fade-up { animation: fadeUp 0.35s ease forwards; }
-      `}</style>
-
-      <div className="fade-up" style={{ width: "100%", maxWidth: 420 }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: T.accentDim, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <Shield style={{ color: T.accent }} size={24} />
+      <div style={{ maxWidth: 450, width: "100%" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+            <UserCheck size={32} style={{ color: T.accent }} />
+            <h1 style={{ fontSize: 28, fontWeight: 900, color: T.text, margin: 0 }}>Login</h1>
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: "0 0 5px" }}>Sign In</h1>
-          <p style={{ fontSize: 12, color: T.muted, margin: 0 }}>Enter your credentials to access NoTrace Chat</p>
+          <p style={{ fontSize: 14, color: T.muted, margin: 0 }}>Access your P2P chat account</p>
         </div>
 
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 18, padding: 26 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Username</label>
-              <input className="chat-inp" style={inp} placeholder="your_username" value={username}
-                onChange={(e) => setUsername(e.target.value)} autoComplete="off" spellCheck={false} />
-            </div>
+        <form onSubmit={handleLogin} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 32, marginBottom: 20 }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, color: T.muted, display: "block", marginBottom: 6, textTransform: "uppercase" }}>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username..."
+              style={{ width: "100%", padding: "10px 12px", background: "#0a0a0a", border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontFamily: T.font, fontSize: 13, outline: "none" }}
+            />
+          </div>
 
-            <div>
-              <label style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 7 }}>Password</label>
-              <div style={{ position: "relative" }}>
-                <input className="chat-inp" style={{ ...inp, paddingRight: 44 }} type={showPw ? "text" : "password"}
-                  placeholder="Your password" value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-                <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.muted }}>
-                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ fontSize: 12, color: T.muted, display: "block", marginBottom: 6, textTransform: "uppercase" }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password..."
+              style={{ width: "100%", padding: "10px 12px", background: "#0a0a0a", border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontFamily: T.font, fontSize: 13, outline: "none" }}
+            />
+          </div>
 
-            {error && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "9px 12px", background: "rgba(255,68,68,0.07)", border: "1px solid rgba(255,68,68,0.2)", borderRadius: 8 }}>
-                <AlertTriangle size={13} style={{ color: T.error, flexShrink: 0 }} />
-                <p style={{ fontSize: 12, color: T.error, margin: 0 }}>{error}</p>
-              </div>
-            )}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", padding: "12px 16px", background: T.accent, color: "#000", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, fontFamily: T.font, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: loading ? 0.6 : 1 }}
+          >
+            <LogIn size={16} />
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
 
-            <button onClick={handleLogin} disabled={loading}
-              style={{ padding: "13px", borderRadius: 10, background: T.accent, color: "#000", fontWeight: 700, fontSize: 14, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: T.font }}>
-              {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Signing in...</> : "Sign In →"}
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontSize: 13, color: T.muted, margin: 0 }}>
+            Don't have an account?{" "}
+            <button
+              onClick={onSwitchToRegister}
+              style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: T.font }}
+            >
+              Register
             </button>
-
-            <p style={{ textAlign: "center", fontSize: 12, color: T.muted, margin: 0 }}>
-              New here? <button onClick={onSwitchToRegister} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontFamily: T.font, fontSize: 12, padding: 0 }}>Create identity</button>
-            </p>
-          </div>
+          </p>
         </div>
-
-        <p style={{ textAlign: "center", fontSize: 10, color: T.muted, marginTop: 14 }}>
-          🔐 Your private key stays on this device only
-        </p>
       </div>
+
+      <PassphraseRecovery username={username} isOpen={showPassphraseRecovery} onClose={() => setShowPassphraseRecovery(false)} onRecover={handleKeyRecovered} />
     </div>
   );
+}
+
+// IndexedDB helpers
+async function openIndexedDB() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open("NoTraceChat", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains("keys")) {
+        db.createObjectStore("keys");
+      }
+    };
+  });
+}
+
+async function getPrivateKeyFromDB(db: IDBDatabase, username: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("keys", "readonly");
+    const store = tx.objectStore("keys");
+    const request = store.get(username);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || null);
+  });
+}
+
+async function storePrivateKeyInDB(db: IDBDatabase, username: string, privateKey: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("keys", "readwrite");
+    const store = tx.objectStore("keys");
+    const request = store.put(privateKey, username);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
 }
