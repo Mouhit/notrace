@@ -12,42 +12,87 @@ interface ChatRequest {
 interface UseRequestsReturn {
   incomingRequests: ChatRequest[];
   outgoingRequests: ChatRequest[];
-  loading: boolean;
-  error: string | null;
   sendRequest: (recipient: string) => Promise<boolean>;
   acceptRequest: (requestId: string, requester: string) => Promise<string | null>;
   rejectRequest: (requestId: string) => Promise<boolean>;
   cancelRequest: (requestId: string) => Promise<boolean>;
-  refreshRequests: () => Promise<void>;
+  outgoingRequestAccepted: boolean;  // ✅ NEW: Track if sent request was accepted
+  acceptedRoomId: string | null;     // ✅ NEW: Room ID when accepted
+  acceptedWith: string | null;       // ✅ NEW: Who accepted the request
+  checkAcceptanceStatus: () => Promise<void>; // ✅ NEW: Manual check function
 }
 
 export function useRequests(username: string): UseRequestsReturn {
   const [incomingRequests, setIncomingRequests] = useState<ChatRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<ChatRequest[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [outgoingRequestAccepted, setOutgoingRequestAccepted] = useState(false);
+  const [acceptedRoomId, setAcceptedRoomId] = useState<string | null>(null);
+  const [acceptedWith, setAcceptedWith] = useState<string | null>(null);
 
-  // Fetch pending requests for this user
-  const refreshRequests = async () => {
+  // ✅ NEW: Check if sent request was accepted
+  const checkAcceptanceStatus = async () => {
+    if (outgoingRequests.length === 0) return;
+
     try {
-      setLoading(true);
-      const res = await fetch(`/api/chat/request?username=${username}`);
+      const res = await fetch(`/api/chat/active?username=${username}`);
       const data = await res.json();
 
-      if (res.ok) {
-        setIncomingRequests(data.requests || []);
-      } else {
-        setError(data.error);
+      if (data.hasActiveChat) {
+        // ✅ Check if this active chat is from one of our outgoing requests
+        const chatUser = data.activeChat.otherUser;
+        const sentToThisUser = outgoingRequests.some((req) => req.recipient === chatUser);
+
+        if (sentToThisUser) {
+          // Request was accepted!
+          setOutgoingRequestAccepted(true);
+          setAcceptedRoomId(data.activeChat.room_id);
+          setAcceptedWith(chatUser);
+          console.log(`✅ Request to ${chatUser} was accepted! Room: ${data.activeChat.room_id}`);
+        }
       }
-    } catch (err) {
-      setError("Failed to fetch requests");
-      console.error(err);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("Error checking acceptance status:", error);
     }
   };
 
-  // Send chat request
+  // Fetch incoming requests (existing)
+  const fetchIncomingRequests = async () => {
+    try {
+      const res = await fetch(`/api/chat/requests?username=${username}`);
+      const data = await res.json();
+      setIncomingRequests(data.requests || []);
+    } catch (error) {
+      console.error("Error fetching incoming requests:", error);
+    }
+  };
+
+  // Fetch outgoing requests (new - needs to be added)
+  const fetchOutgoingRequests = async () => {
+    try {
+      const res = await fetch(`/api/chat/requests/outgoing?username=${username}`);
+      const data = await res.json();
+      setOutgoingRequests(data.requests || []);
+    } catch (error) {
+      console.error("Error fetching outgoing requests:", error);
+    }
+  };
+
+  // Poll incoming AND outgoing requests + check acceptance
+  useEffect(() => {
+    fetchIncomingRequests();
+    fetchOutgoingRequests();
+    checkAcceptanceStatus(); // ✅ Check acceptance immediately
+
+    const interval = setInterval(() => {
+      fetchIncomingRequests();
+      fetchOutgoingRequests();
+      checkAcceptanceStatus(); // ✅ Check acceptance every 3 seconds
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [username]);
+
+  // Send request
   const sendRequest = async (recipient: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/chat/request", {
@@ -59,57 +104,44 @@ export function useRequests(username: string): UseRequestsReturn {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Chat request sent!");
-        setOutgoingRequests([
-          ...outgoingRequests,
-          {
-            id: data.requestId,
-            requester: username,
-            recipient,
-            status: "pending",
-            created_at: new Date().toISOString(),
-          },
-        ]);
+        toast.success(`Request sent to @${recipient}`);
+        fetchOutgoingRequests(); // ✅ Refresh outgoing requests
         return true;
       } else {
-        setError(data.error);
         toast.error(data.error || "Failed to send request");
         return false;
       }
-    } catch (err) {
-      setError("Failed to send request");
-      console.error(err);
+    } catch (error) {
+      toast.error("Network error");
+      console.error(error);
       return false;
     }
   };
 
-  // Accept incoming request
+  // Accept request
   const acceptRequest = async (requestId: string, requester: string): Promise<string | null> => {
     try {
       const res = await fetch("/api/chat/request/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          requester,
-          recipient: username,
-        }),
+        body: JSON.stringify({ requestId, requester, recipient: username }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Request accepted!");
-        setIncomingRequests(incomingRequests.filter((r) => r.id !== requestId));
+        toast.success(`Connected with @${requester}!`);
+        fetchIncomingRequests(); // ✅ Refresh incoming requests
+        setAcceptedRoomId(data.activeChat.room_id);
+        setAcceptedWith(requester);
         return data.roomId;
       } else {
-        setError(data.error);
         toast.error(data.error || "Failed to accept request");
         return null;
       }
-    } catch (err) {
-      setError("Failed to accept request");
-      console.error(err);
+    } catch (error) {
+      toast.error("Network error");
+      console.error(error);
       return null;
     }
   };
@@ -124,22 +156,21 @@ export function useRequests(username: string): UseRequestsReturn {
       });
 
       if (res.ok) {
-        toast.success("Request rejected");
-        setIncomingRequests(incomingRequests.filter((r) => r.id !== requestId));
+        toast.info("Request rejected");
+        fetchIncomingRequests(); // ✅ Refresh incoming requests
         return true;
       } else {
-        const data = await res.json();
-        setError(data.error);
+        toast.error("Failed to reject request");
         return false;
       }
-    } catch (err) {
-      setError("Failed to reject request");
-      console.error(err);
+    } catch (error) {
+      toast.error("Network error");
+      console.error(error);
       return false;
     }
   };
 
-  // Cancel sent request
+  // Cancel request
   const cancelRequest = async (requestId: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/chat/request/cancel", {
@@ -149,40 +180,33 @@ export function useRequests(username: string): UseRequestsReturn {
       });
 
       if (res.ok) {
-        toast.success("Request cancelled");
-        setOutgoingRequests(outgoingRequests.filter((r) => r.id !== requestId));
+        toast.info("Request cancelled");
+        fetchOutgoingRequests(); // ✅ Refresh outgoing requests
+        setOutgoingRequestAccepted(false);
+        setAcceptedRoomId(null);
+        setAcceptedWith(null);
         return true;
       } else {
-        const data = await res.json();
-        setError(data.error);
+        toast.error("Failed to cancel request");
         return false;
       }
-    } catch (err) {
-      setError("Failed to cancel request");
-      console.error(err);
+    } catch (error) {
+      toast.error("Network error");
+      console.error(error);
       return false;
     }
   };
 
-  // Poll for incoming requests every 3 seconds
-  useEffect(() => {
-    if (!username) return;
-
-    refreshRequests();
-    const interval = setInterval(refreshRequests, 3000);
-
-    return () => clearInterval(interval);
-  }, [username]);
-
   return {
     incomingRequests,
     outgoingRequests,
-    loading,
-    error,
     sendRequest,
     acceptRequest,
     rejectRequest,
     cancelRequest,
-    refreshRequests,
+    outgoingRequestAccepted,  // ✅ NEW
+    acceptedRoomId,           // ✅ NEW
+    acceptedWith,             // ✅ NEW
+    checkAcceptanceStatus,    // ✅ NEW
   };
 }
