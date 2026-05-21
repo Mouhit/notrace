@@ -5,6 +5,8 @@ import { decryptPrivateKey } from "@/lib/chat/passphrase";
 /**
  * POST /api/chat/recover-key
  * Recover private key using passphrase on new device
+ * Returns 404 if username not found
+ * Returns 401 if passphrase invalid
  */
 export async function POST(req: NextRequest) {
   try {
@@ -23,8 +25,23 @@ export async function POST(req: NextRequest) {
       .eq("username", username)
       .single();
 
+    // ✅ UPDATED: Check specifically for "no rows found" error
+    if (fetchError && fetchError.code === "PGRST116") {
+      // User not found - return 404
+      await supabase.from("key_recovery_attempts").insert({
+        username,
+        success: false,
+        error_reason: "Username not found",
+        timestamp: new Date().toISOString(),
+      });
+
+      return NextResponse.json({ error: "Username not found" }, { status: 404 });
+    }
+
     if (fetchError || !profile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      // Other database error
+      console.error("Profile fetch error:", fetchError);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
     if (!profile.encrypted_private_key || !profile.key_salt) {
@@ -40,7 +57,7 @@ export async function POST(req: NextRequest) {
         profile.key_iterations || 100000
       );
 
-      // Log recovery attempt
+      // Log successful recovery attempt
       await supabase.from("key_recovery_attempts").insert({
         username,
         success: true,
@@ -53,7 +70,7 @@ export async function POST(req: NextRequest) {
         message: "Private key recovered successfully",
       });
     } catch (decryptError) {
-      // Log failed attempt
+      // Log failed recovery attempt (wrong passphrase)
       await supabase.from("key_recovery_attempts").insert({
         username,
         success: false,

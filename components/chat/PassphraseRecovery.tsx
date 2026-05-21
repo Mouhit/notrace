@@ -18,9 +18,10 @@ interface PassphraseRecoveryProps {
   isOpen: boolean;
   onClose: () => void;
   onRecover: (privateKey: string) => Promise<void>;
+  onUsernameNotFound?: () => void;  // ✅ NEW: Callback when username not found
 }
 
-export default function PassphraseRecovery({ username, isOpen, onClose, onRecover }: PassphraseRecoveryProps) {
+export default function PassphraseRecovery({ username, isOpen, onClose, onRecover, onUsernameNotFound }: PassphraseRecoveryProps) {
   const [passphrase, setPassphrase] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,13 +48,29 @@ export default function PassphraseRecovery({ username, isOpen, onClose, onRecove
         toast.success("Private key recovered!");
         await onRecover(data.privateKey);
         onClose();
+      } else if (res.status === 404) {
+        // ✅ NEW: Handle username not found error
+        const errorMsg = "Username not found";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        if (onUsernameNotFound) {
+          onUsernameNotFound();
+        }
+      } else if (res.status === 401) {
+        // Invalid passphrase
+        const errorMsg = data.error || "Invalid passphrase";
+        setError(errorMsg);
+        toast.error(errorMsg);
       } else {
-        setError(data.error || "Recovery failed");
-        toast.error(data.error || "Recovery failed");
+        const errorMsg = data.error || "Recovery failed";
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
-      setError("Network error");
-      toast.error("Network error");
+      const errorMsg = "Network error";
+      setError(errorMsg);
+      toast.error(errorMsg);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -75,6 +92,7 @@ export default function PassphraseRecovery({ username, isOpen, onClose, onRecove
 
         <p style={{ fontSize: 12, color: T.accent, margin: "0 0 24px" }}>User: @{username}</p>
 
+        {/* Error Message */}
         {error && (
           <div style={{ background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.3)", borderRadius: 8, padding: 12, marginBottom: 16, display: "flex", gap: 8, alignItems: "flex-start" }}>
             <AlertCircle size={16} style={{ color: "#ff4444", flexShrink: 0 }} />
@@ -82,6 +100,7 @@ export default function PassphraseRecovery({ username, isOpen, onClose, onRecove
           </div>
         )}
 
+        {/* Passphrase Input */}
         <div style={{ marginBottom: 24 }}>
           <label style={{ fontSize: 12, color: T.muted, display: "block", marginBottom: 6, textTransform: "uppercase" }}>Passphrase</label>
           <input
@@ -95,12 +114,18 @@ export default function PassphraseRecovery({ username, isOpen, onClose, onRecove
           />
         </div>
 
+        {/* Info */}
         <div style={{ background: "rgba(159,255,0,0.08)", border: `1px solid rgba(159,255,0,0.25)`, borderRadius: 8, padding: 12, marginBottom: 24, fontSize: 12, color: T.text }}>
-          <p style={{ margin: 0 }}>💡 This is the passphrase you set when you registered, not your login password.</p>
+          <p style={{ margin: 0 }}>💡 This is the 12-word passphrase you set during registration, not your login password.</p>
         </div>
 
+        {/* Buttons */}
         <div style={{ display: "flex", gap: 12 }}>
-          <button onClick={onClose} disabled={loading} style={{ flex: 1, padding: "12px 16px", borderRadius: 8, background: "transparent", border: `1px solid ${T.border}`, color: T.text, cursor: "pointer", fontFamily: T.font, fontWeight: 700, fontSize: 13 }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            style={{ flex: 1, padding: "12px 16px", borderRadius: 8, background: "transparent", border: `1px solid ${T.border}`, color: T.text, cursor: "pointer", fontFamily: T.font, fontWeight: 700, fontSize: 13 }}
+          >
             Cancel
           </button>
           <button
