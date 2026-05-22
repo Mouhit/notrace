@@ -54,7 +54,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
   useEffect(() => {
     if (!peerConnection) return;
 
-    const handleDataChannelMessage = (event: any) => {
+    const handleDataChannelMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
         console.log("Received message:", data);
@@ -74,17 +74,13 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
       }
     };
 
-    // ✅ FIX: Attach listener to data channel for received messages
-    if (peerConnection.ondatachannel) {
-      const originalHandler = peerConnection.ondatachannel;
-      peerConnection.ondatachannel = (event) => {
-        console.log("Data channel received:", event.channel.label);
-        event.channel.onmessage = handleDataChannelMessage;
-        if (originalHandler) {
-          originalHandler(event);
-        }
-      };
-    }
+    // ✅ FIX: Properly handle data channel events without type issues
+    const handleDataChannel = (event: RTCDataChannelEvent) => {
+      console.log("Data channel received:", event.channel.label);
+      event.channel.onmessage = handleDataChannelMessage;
+    };
+
+    peerConnection.ondatachannel = handleDataChannel;
 
     return () => {
       peerConnection.ondatachannel = null;
