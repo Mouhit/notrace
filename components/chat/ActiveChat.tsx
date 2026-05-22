@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useWebRTCChat } from "@/lib/chat/useWebRTCChat";
 
@@ -20,7 +20,6 @@ interface Message {
   content: string;
   timestamp: number;
   side: "sent" | "received";
-  encrypted: boolean;
 }
 
 interface ActiveChatProps {
@@ -36,32 +35,29 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
   const [sending, setSending] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "error">("connecting");
 
-  const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(
-    roomId,
-    username,
-    otherUser
-  );
+  const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(roomId, username, otherUser);
 
-  // ✅ Update connection status based on hook state
+  // ✅ FIX: Update connection status
   useEffect(() => {
     if (connectionError) {
       setConnectionStatus("error");
-      toast.error(`Connection error: ${connectionError}`);
+      console.error("Connection error:", connectionError);
     } else if (connectionReady) {
       setConnectionStatus("connected");
-      toast.success("Connected to peer!");
+      console.log("✅ Connection ready");
     } else {
       setConnectionStatus("connecting");
     }
   }, [connectionReady, connectionError]);
 
-  // ✅ Listen for incoming messages from peer connection
+  // ✅ FIX: Listen for incoming messages from peer connection
   useEffect(() => {
     if (!peerConnection) return;
 
     const handleDataChannelMessage = (event: any) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("Received message:", data);
 
         // ✅ Add received message
         const newMessage: Message = {
@@ -70,7 +66,6 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
           content: data.text,
           timestamp: data.timestamp,
           side: "received",
-          encrypted: false,
         };
 
         setMessages((prev) => [...prev, newMessage]);
@@ -79,49 +74,54 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
       }
     };
 
-    // Attach message listener to data channel
-    peerConnection.ondatachannel = (event) => {
-      event.channel.onmessage = handleDataChannelMessage;
-    };
+    // ✅ FIX: Attach listener to data channel for received messages
+    if (peerConnection.ondatachannel) {
+      const originalHandler = peerConnection.ondatachannel;
+      peerConnection.ondatachannel = (event) => {
+        console.log("Data channel received:", event.channel.label);
+        event.channel.onmessage = handleDataChannelMessage;
+        if (originalHandler) {
+          originalHandler(event);
+        }
+      };
+    }
 
     return () => {
       peerConnection.ondatachannel = null;
     };
   }, [peerConnection]);
 
-  // ✅ Send message
+  // ✅ FIX: Send message with validation
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!inputValue.trim()) return;
 
     if (!connectionReady) {
-      toast.error("Connection not ready. Please wait...");
+      toast.error("Waiting for connection... Please wait");
       return;
     }
 
     setSending(true);
 
     try {
-      // ✅ Send via WebRTC data channel
       const success = await sendMessage(inputValue);
 
       if (success) {
-        // ✅ Add to local UI immediately (optimistic update)
+        // ✅ Add to local UI (optimistic update)
         const newMessage: Message = {
           id: `msg-${Date.now()}`,
           sender: username,
           content: inputValue,
           timestamp: Date.now(),
           side: "sent",
-          encrypted: false,
         };
 
         setMessages((prev) => [...prev, newMessage]);
         setInputValue("");
-        toast.success("Message sent!");
+        console.log("Message sent successfully");
       } else {
-        toast.error("Failed to send message");
+        toast.error("Failed to send message - connection not ready");
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -154,26 +154,38 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
         }}
       >
         <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>
-            @{otherUser}
-          </h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>@{otherUser}</h3>
 
-          {/* ✅ Connection status indicator */}
+          {/* ✅ FIX: Better connection status indicator */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: connectionReady ? "#4ade80" : connectionStatus === "error" ? "#ff4444" : "#fbbf24",
+                background:
+                  connectionStatus === "connected"
+                    ? "#4ade80"
+                    : connectionStatus === "error"
+                      ? "#ff4444"
+                      : "#fbbf24",
+                animation: connectionStatus === "connecting" ? "pulse 1.5s infinite" : "none",
               }}
             />
             <span style={{ fontSize: 11, color: T.muted }}>
-              {connectionStatus === "connected" && "Connected"}
-              {connectionStatus === "connecting" && "Connecting..."}
-              {connectionStatus === "error" && "Connection error"}
+              {connectionStatus === "connected" && "✅ Connected"}
+              {connectionStatus === "connecting" && "⏳ Connecting..."}
+              {connectionStatus === "error" && "❌ Connection Error"}
             </span>
           </div>
+
+          {/* ✅ FIX: Show error message if exists */}
+          {connectionError && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+              <AlertCircle size={12} style={{ color: "#ff4444" }} />
+              <span style={{ fontSize: 10, color: "#ff4444" }}>{connectionError}</span>
+            </div>
+          )}
         </div>
 
         <button
@@ -207,7 +219,9 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
       >
         {messages.length === 0 ? (
           <div style={{ textAlign: "center", color: T.muted, fontSize: 12, margin: "auto" }}>
-            No messages yet. Start the conversation!
+            {connectionStatus === "connecting"
+              ? "Connecting... Messages will appear here"
+              : "No messages yet. Start the conversation!"}
           </div>
         ) : (
           messages.map((msg) => (
@@ -243,7 +257,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
         )}
       </div>
 
-      {/* Input Area */}
+      {/* ✅ FIX: Input Area with better disabled state */}
       <form
         onSubmit={handleSendMessage}
         style={{
@@ -251,19 +265,26 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
           borderTop: `1px solid ${T.border}`,
           display: "flex",
           gap: 8,
+          background: connectionStatus === "error" ? "rgba(255,68,68,0.05)" : T.bg,
         }}
       >
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Type a message..."
-          disabled={!connectionReady || sending}
+          placeholder={
+            connectionStatus === "connecting"
+              ? "Connecting... Please wait"
+              : connectionStatus === "error"
+                ? "Connection error - refresh page"
+                : "Type a message..."
+          }
+          disabled={!connectionReady || sending || connectionStatus === "error"}
           style={{
             flex: 1,
             padding: "10px 12px",
             background: "#0a0a0a",
-            border: `1px solid ${T.border}`,
+            border: `1px solid ${connectionStatus === "error" ? "#ff4444" : T.border}`,
             borderRadius: 8,
             color: T.text,
             fontFamily: T.font,
@@ -275,7 +296,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
 
         <button
           type="submit"
-          disabled={!connectionReady || sending || !inputValue.trim()}
+          disabled={!connectionReady || sending || !inputValue.trim() || connectionStatus === "error"}
           style={{
             padding: "10px 16px",
             background: T.accent,

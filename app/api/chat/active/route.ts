@@ -3,12 +3,15 @@ import { createServerClient } from "@/lib/supabase";
 
 /**
  * GET /api/chat/active?username=sumit
- * Check if user has an active chat (for both requester and recipient)
+ * Check if user has an active chat (FIXED: handles multiple chats correctly)
  * Returns room_id when request was accepted
+ * 
+ * CRITICAL FIX: Now handles multiple concurrent chats by returning LATEST
  */
 export async function GET(req: NextRequest) {
   try {
     const username = req.nextUrl.searchParams.get("username");
+    const roomId = req.nextUrl.searchParams.get("roomId"); // ✅ NEW: Optional filter
 
     if (!username) {
       return NextResponse.json({ error: "Username required" }, { status: 400 });
@@ -16,14 +19,21 @@ export async function GET(req: NextRequest) {
 
     const supabase = createServerClient();
 
-    // ✅ CRITICAL: Check BOTH user1 and user2 columns
-    // This finds active chats where user is involved (either side)
-    const { data: activeChat, error } = await supabase
+    let query = supabase
       .from("active_chats")
       .select("id, user1, user2, room_id, status, started_at")
       .or(`user1.eq.${username},user2.eq.${username}`)
-      .eq("status", "connected")
-      .single();
+      .eq("status", "connected");
+
+    // ✅ If specific roomId provided, filter by it
+    if (roomId) {
+      query = query.eq("room_id", roomId);
+    } else {
+      // ✅ If multiple chats, return LATEST (to prevent .single() crash)
+      query = query.order("started_at", { ascending: false }).limit(1);
+    }
+
+    const { data: activeChat, error } = await query.single();
 
     // Check for "no rows found" error
     if (error && error.code === "PGRST116") {
@@ -35,6 +45,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (error) {
+      console.error("Active chat query error:", error);
       throw error;
     }
 
@@ -55,7 +66,7 @@ export async function GET(req: NextRequest) {
         room_id: activeChat.room_id,
         user1: activeChat.user1,
         user2: activeChat.user2,
-        otherUser: otherUser, // ✅ NEW: From this user's perspective
+        otherUser: otherUser,
         status: activeChat.status,
         started_at: activeChat.started_at,
       },
