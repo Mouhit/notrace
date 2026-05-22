@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
-import { MessageSquare, Search } from "lucide-react";
+import { MessageSquare, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useRequests } from "@/lib/chat/useRequests";
+import ChatAuth from "./ChatAuth";
 import IncomingRequests from "./IncomingRequests";
 import OutgoingRequests from "./OutgoingRequests";
 import ActiveChat from "./ActiveChat";
-import RequestNotification from "./RequestNotification";
-import { useRequests } from "@/lib/chat/useRequests";
 
 const T = {
   bg: "#050505",
@@ -18,256 +18,214 @@ const T = {
   font: "'JetBrains Mono', monospace",
 };
 
+type ViewType = "requests" | "chat";
+
+interface ActiveChatState {
+  roomId: string;
+  otherUser: string;
+  initiator: "requester" | "recipient";
+}
+
 interface ChatWindowProps {
   username: string;
+  privateKey: string;
   onLogout: () => void;
 }
 
-type View = "discovery" | "requests" | "chat";
+export default function ChatWindow({ username, privateKey, onLogout }: ChatWindowProps) {
+  const [view, setView] = useState<ViewType>("requests");
+  const [activeTab, setActiveTab] = useState<"incoming" | "outgoing">("incoming");
+  const [activeChat, setActiveChat] = useState<ActiveChatState | null>(null);
 
-export default function ChatWindow({ username, onLogout }: ChatWindowProps) {
-  const [view, setView] = useState<View>("discovery");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeChat, setActiveChat] = useState<any>(null);
-  const [showNotification, setShowNotification] = useState<any>(null);
-  const [lastRequestId, setLastRequestId] = useState<string>("");
+  const {
+    incomingRequests,
+    outgoingRequests,
+    acceptRequest,
+    rejectRequest,
+    cancelRequest,
+    outgoingRequestAccepted,  // ✅ NEW: From useRequests hook
+    acceptedRoomId,           // ✅ NEW: From useRequests hook
+    acceptedWith,             // ✅ NEW: From useRequests hook
+  } = useRequests(username);
 
-  const { incomingRequests, outgoingRequests, sendRequest, acceptRequest, rejectRequest, cancelRequest } =
-    useRequests(username);
+  // ✅ NEW: Watch for acceptance of outgoing request and auto-transition
+  useEffect(() => {
+    if (outgoingRequestAccepted && acceptedRoomId && acceptedWith) {
+      console.log(`✅ Auto-transitioning to chat with ${acceptedWith}`);
 
-  // Search for user
-  const handleSearchUser = async () => {
-    if (!searchQuery.trim()) {
-      toast.error("Enter a username");
-      return;
-    }
-
-    const success = await sendRequest(searchQuery.trim());
-    if (success) {
-      setSearchQuery("");
-      setView("requests");
-    }
-  };
-
-  // Accept request
-  const handleAcceptRequest = async (requestId: string, requester: string) => {
-    const roomId = await acceptRequest(requestId, requester);
-    if (roomId) {
+      // Set up active chat state
       setActiveChat({
-        roomId,
-        otherUser: requester,
+        roomId: acceptedRoomId,
+        otherUser: acceptedWith,
+        initiator: "requester", // We sent the request
       });
+
+      // Switch to chat view
       setView("chat");
-      setShowNotification(null);
+
+      toast.success(`Connected with @${acceptedWith}!`);
+    }
+  }, [outgoingRequestAccepted, acceptedRoomId, acceptedWith]);
+
+  // Handle accepting incoming request
+  const handleAcceptRequest = async (requestId: string, requester: string) => {
+    try {
+      const roomId = await acceptRequest(requestId, requester);
+
+      if (roomId) {
+        setActiveChat({
+          roomId,
+          otherUser: requester,
+          initiator: "recipient", // They sent the request, we accepted
+        });
+
+        setView("chat");
+        toast.success(`Connected with @${requester}!`);
+      }
+    } catch (error) {
+      toast.error("Failed to accept request");
+      console.error(error);
     }
   };
 
-  // Reject request (returns boolean, wrap to return void)
-  const handleRejectRequest = async (requestId: string): Promise<void> => {
+  // Handle rejecting incoming request
+  const handleRejectRequest = async (requestId: string) => {
     await rejectRequest(requestId);
   };
 
-  // Cancel request (returns boolean, wrap to return void)
-  const handleCancelRequest = async (requestId: string): Promise<void> => {
+  // Handle canceling outgoing request
+  const handleCancelRequest = async (requestId: string) => {
     await cancelRequest(requestId);
   };
 
-  // End chat
-  const handleEndChat = async () => {
-    if (!activeChat) return;
-
-    await fetch("/api/chat/end", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId: activeChat.roomId, username }),
+  // Handle accepting from OutgoingRequests component (when acceptance auto-detected)
+  const handleOutgoingRequestAccepted = (roomId: string, otherUser: string) => {
+    setActiveChat({
+      roomId,
+      otherUser,
+      initiator: "requester",
     });
 
-    setActiveChat(null);
-    setView("requests");
+    setView("chat");
   };
 
-  // Show notification for new incoming request
-  useEffect(() => {
-    if (incomingRequests.length > 0) {
-      const latestRequest = incomingRequests[0];
-      if (latestRequest.id !== lastRequestId) {
-        setShowNotification(latestRequest);
-        setLastRequestId(latestRequest.id);
-      }
-    }
-  }, [incomingRequests]);
+  // Close active chat and return to requests
+  const handleCloseChat = () => {
+    setActiveChat(null);
+    setView("requests");
+    setActiveTab("incoming");
+  };
 
+  // If authenticated and in chat view
+  if (view === "chat" && activeChat) {
+    return (
+      <div style={{ height: "100vh", background: T.bg, padding: 20, fontFamily: T.font }}>
+        <ActiveChat
+          roomId={activeChat.roomId}
+          username={username}
+          otherUser={activeChat.otherUser}
+          onClose={handleCloseChat}
+        />
+      </div>
+    );
+  }
+
+  // Requests view
   return (
     <div style={{ minHeight: "100vh", background: T.bg, padding: 20, fontFamily: T.font }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 99px; }
-      `}</style>
-
-      {/* Notification */}
-      {showNotification && (
-        <RequestNotification
-          requester={showNotification.requester}
-          onAccept={() => handleAcceptRequest(showNotification.id, showNotification.requester)}
-          onDismiss={() => setShowNotification(null)}
-        />
-      )}
-
-      {/* Header */}
-      <div style={{ maxWidth: 900, margin: "0 auto", marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <MessageSquare size={24} style={{ color: T.accent }} />
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0 }}>P2P Chat</h1>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <MessageSquare size={32} style={{ color: T.accent }} />
+            <h1 style={{ fontSize: 28, fontWeight: 900, color: T.text, margin: 0 }}>P2P Chat</h1>
           </div>
-          <button
-            onClick={onLogout}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 8,
-              background: "transparent",
-              border: `1px solid ${T.border}`,
-              color: T.muted,
-              cursor: "pointer",
-              fontSize: 12,
-              fontFamily: T.font,
-            }}
-          >
-            Logout
-          </button>
-        </div>
 
-        {/* Navigation */}
-        <div style={{ display: "flex", gap: 8, borderBottom: `1px solid ${T.border}`, paddingBottom: 12 }}>
-          <button
-            onClick={() => setView("discovery")}
-            style={{
-              padding: "8px 16px",
-              background: view === "discovery" ? T.accent : "transparent",
-              color: view === "discovery" ? "#000" : T.muted,
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 12,
-              fontFamily: T.font,
-              fontWeight: 700,
-            }}
-          >
-            Find User
-          </button>
-          <button
-            onClick={() => setView("requests")}
-            style={{
-              padding: "8px 16px",
-              background: view === "requests" ? T.accent : "transparent",
-              color: view === "requests" ? "#000" : T.muted,
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 12,
-              fontFamily: T.font,
-              fontWeight: 700,
-            }}
-          >
-            Requests
-            {incomingRequests.length > 0 && (
-              <span style={{ marginLeft: 6, color: "#ff4444" }}>({incomingRequests.length})</span>
-            )}
-          </button>
-          {activeChat && (
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: T.muted }}>@{username}</span>
             <button
-              onClick={() => setView("chat")}
+              onClick={onLogout}
               style={{
                 padding: "8px 16px",
-                background: view === "chat" ? T.accent : "transparent",
-                color: view === "chat" ? "#000" : T.muted,
-                border: "none",
-                borderRadius: 8,
+                background: "transparent",
+                border: `1px solid ${T.border}`,
+                color: T.text,
+                borderRadius: 6,
                 cursor: "pointer",
                 fontSize: 12,
                 fontFamily: T.font,
                 fontWeight: 700,
               }}
             >
-              Chat @{activeChat.otherUser}
+              Logout
             </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 12 }}>
+          <button
+            onClick={() => setActiveTab("incoming")}
+            style={{
+              background: activeTab === "incoming" ? T.accent : "transparent",
+              color: activeTab === "incoming" ? "#000" : T.muted,
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 12,
+              fontFamily: T.font,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Users size={14} />
+            Incoming ({incomingRequests.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("outgoing")}
+            style={{
+              background: activeTab === "outgoing" ? T.accent : "transparent",
+              color: activeTab === "outgoing" ? "#000" : T.muted,
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 12,
+              fontFamily: T.font,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <MessageSquare size={14} />
+            Outgoing ({outgoingRequests.length})
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
+          {activeTab === "incoming" ? (
+            <IncomingRequests
+              requests={incomingRequests}
+              onAccept={handleAcceptRequest}
+              onReject={handleRejectRequest}
+            />
+          ) : (
+            <OutgoingRequests
+              requests={outgoingRequests}
+              onCancel={handleCancelRequest}
+              onAccepted={handleOutgoingRequestAccepted}
+              outgoingRequestAccepted={outgoingRequestAccepted}  // ✅ NEW
+              acceptedRoomId={acceptedRoomId}                   // ✅ NEW
+              acceptedWith={acceptedWith}                       // ✅ NEW
+            />
           )}
         </div>
-      </div>
-
-      {/* Content */}
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        {view === "discovery" && (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 16px" }}>Find a User to Chat</h2>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Enter username..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
-                style={{
-                  flex: 1,
-                  padding: "12px 16px",
-                  borderRadius: 8,
-                  background: "#0a0a0a",
-                  border: `1px solid ${T.border}`,
-                  color: T.text,
-                  fontSize: 13,
-                  fontFamily: T.font,
-                  outline: "none",
-                }}
-              />
-              <button
-                onClick={handleSearchUser}
-                style={{
-                  padding: "12px 24px",
-                  borderRadius: 8,
-                  background: T.accent,
-                  color: "#000",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  fontFamily: T.font,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <Search size={14} />
-                Search
-              </button>
-            </div>
-          </div>
-        )}
-
-        {view === "requests" && (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 24 }}>
-            <div style={{ marginBottom: 24 }}>
-              <IncomingRequests
-                requests={incomingRequests}
-                onAccept={handleAcceptRequest}
-                onReject={handleRejectRequest}
-              />
-            </div>
-            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 24 }}>
-              <OutgoingRequests requests={outgoingRequests} onCancel={handleCancelRequest} />
-            </div>
-          </div>
-        )}
-
-        {view === "chat" && activeChat && (
-          <ActiveChat
-            roomId={activeChat.roomId}
-            username={username}
-            otherUser={activeChat.otherUser}
-            onEndChat={handleEndChat}
-          />
-        )}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { Send, PhoneOff, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useWebRTCChat } from "@/lib/chat/useWebRTCChat";
 
 const T = {
   bg: "#050505",
@@ -13,84 +14,122 @@ const T = {
   font: "'JetBrains Mono', monospace",
 };
 
-const EPHEMERAL_TIMEOUT = 10000 + Math.random() * 5000;
-
 interface Message {
   id: string;
-  from: string;
-  text: string;
+  sender: string;
+  content: string;
   timestamp: number;
-  visible: boolean;
+  side: "sent" | "received";
+  encrypted: boolean;
 }
 
 interface ActiveChatProps {
   roomId: string;
   username: string;
   otherUser: string;
-  onEndChat: () => Promise<void>;
+  onClose: () => void;
 }
 
-export default function ActiveChat({ roomId, username, otherUser, onEndChat }: ActiveChatProps) {
+export default function ActiveChat({ roomId, username, otherUser, onClose }: ActiveChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [sending, setSending] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "error">("connecting");
 
-  // Auto-scroll to bottom
+  const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(
+    roomId,
+    username,
+    otherUser
+  );
+
+  // ✅ Update connection status based on hook state
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (connectionError) {
+      setConnectionStatus("error");
+      toast.error(`Connection error: ${connectionError}`);
+    } else if (connectionReady) {
+      setConnectionStatus("connected");
+      toast.success("Connected to peer!");
+    } else {
+      setConnectionStatus("connecting");
+    }
+  }, [connectionReady, connectionError]);
 
-  // Add message and auto-delete
-  const addMessage = (from: string, text: string) => {
-    const message: Message = {
-      id: `${Date.now()}-${Math.random()}`,
-      from,
-      text,
-      timestamp: Date.now(),
-      visible: true,
+  // ✅ Listen for incoming messages from peer connection
+  useEffect(() => {
+    if (!peerConnection) return;
+
+    const handleDataChannelMessage = (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // ✅ Add received message
+        const newMessage: Message = {
+          id: `msg-${Date.now()}-${Math.random()}`,
+          sender: data.sender,
+          content: data.text,
+          timestamp: data.timestamp,
+          side: "received",
+          encrypted: false,
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+      } catch (error) {
+        console.error("Failed to parse message:", error);
+      }
     };
 
-    setMessages((prev) => [...prev, message]);
+    // Attach message listener to data channel
+    peerConnection.ondatachannel = (event) => {
+      event.channel.onmessage = handleDataChannelMessage;
+    };
 
-    // Auto-delete after timeout
-    setTimeout(() => {
-      setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, visible: false } : m)));
-      setTimeout(() => {
-        setMessages((prev) => prev.filter((m) => m.id !== message.id));
-      }, 500);
-    }, EPHEMERAL_TIMEOUT);
-  };
+    return () => {
+      peerConnection.ondatachannel = null;
+    };
+  }, [peerConnection]);
 
-  // Send message
-  const handleSend = () => {
-    if (!input.trim() || !isConnected) return;
+  // ✅ Send message
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    addMessage(username, input.trim());
-    setInput("");
+    if (!inputValue.trim()) return;
 
-    // In real implementation, would send via WebRTC DataChannel
-    // For now, just add locally
-  };
+    if (!connectionReady) {
+      toast.error("Connection not ready. Please wait...");
+      return;
+    }
 
-  // End chat
-  const handleEndChat = async () => {
-    setLoading(true);
+    setSending(true);
+
     try {
-      await onEndChat();
-      toast.success("Chat ended");
-    } catch (err) {
-      toast.error("Failed to end chat");
+      // ✅ Send via WebRTC data channel
+      const success = await sendMessage(inputValue);
+
+      if (success) {
+        // ✅ Add to local UI immediately (optimistic update)
+        const newMessage: Message = {
+          id: `msg-${Date.now()}`,
+          sender: username,
+          content: inputValue,
+          timestamp: Date.now(),
+          side: "sent",
+          encrypted: false,
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+        setInputValue("");
+        toast.success("Message sent!");
+      } else {
+        toast.error("Failed to send message");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Error sending message");
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
-
-  // Simulate connection
-  useEffect(() => {
-    setIsConnected(true);
-  }, [roomId]);
 
   return (
     <div
@@ -107,8 +146,7 @@ export default function ActiveChat({ roomId, username, otherUser, onEndChat }: A
       {/* Header */}
       <div
         style={{
-          padding: "14px 16px",
-          background: T.card,
+          padding: "16px 20px",
           borderBottom: `1px solid ${T.border}`,
           display: "flex",
           alignItems: "center",
@@ -116,120 +154,148 @@ export default function ActiveChat({ roomId, username, otherUser, onEndChat }: A
         }}
       >
         <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>@{otherUser}</p>
-          <p style={{ fontSize: 11, color: isConnected ? T.accent : "#ff4444", margin: "4px 0 0" }}>
-            {isConnected ? "🔒 P2P Connected" : "Connecting..."}
-          </p>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>
+            @{otherUser}
+          </h3>
+
+          {/* ✅ Connection status indicator */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: connectionReady ? "#4ade80" : connectionStatus === "error" ? "#ff4444" : "#fbbf24",
+              }}
+            />
+            <span style={{ fontSize: 11, color: T.muted }}>
+              {connectionStatus === "connected" && "Connected"}
+              {connectionStatus === "connecting" && "Connecting..."}
+              {connectionStatus === "error" && "Connection error"}
+            </span>
+          </div>
         </div>
+
         <button
-          onClick={handleEndChat}
-          disabled={loading}
+          onClick={onClose}
           style={{
-            padding: "8px 12px",
-            borderRadius: 8,
             background: "transparent",
-            color: "#ff4444",
-            border: "1px solid #ff4444",
+            border: `1px solid ${T.border}`,
+            color: T.text,
+            padding: "6px 12px",
+            borderRadius: 6,
             cursor: "pointer",
             fontSize: 12,
             fontFamily: T.font,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            opacity: loading ? 0.5 : 1,
+            fontWeight: 600,
           }}
         >
-          {loading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <PhoneOff size={14} />}
-          End
+          Close
         </button>
       </div>
 
-      {/* Messages */}
+      {/* Messages Area */}
       <div
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px",
+          padding: "16px 20px",
           display: "flex",
           flexDirection: "column",
           gap: 12,
         }}
       >
-        {messages.length === 0 && isConnected && (
-          <div style={{ textAlign: "center", color: T.muted, fontSize: 12, marginTop: "auto", marginBottom: "auto" }}>
-            💬 Messages auto-delete in 10-15 seconds
+        {messages.length === 0 ? (
+          <div style={{ textAlign: "center", color: T.muted, fontSize: 12, margin: "auto" }}>
+            No messages yet. Start the conversation!
           </div>
-        )}
-
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            style={{
-              display: "flex",
-              justifyContent: msg.from === username ? "flex-end" : "flex-start",
-              opacity: msg.visible ? 1 : 0,
-              transition: "opacity 0.5s",
-            }}
-          >
+        ) : (
+          messages.map((msg) => (
             <div
+              key={msg.id}
               style={{
-                maxWidth: "70%",
-                padding: "10px 14px",
-                borderRadius: msg.from === username ? "14px 4px 14px 14px" : "14px 14px 4px 14px",
-                background: msg.from === username ? "rgba(159,255,0,0.1)" : T.card,
-                border: `1px solid ${msg.from === username ? "rgba(159,255,0,0.25)" : T.border}`,
+                display: "flex",
+                justifyContent: msg.side === "sent" ? "flex-end" : "flex-start",
               }}
             >
-              {msg.from !== username && (
-                <p style={{ fontSize: 10, color: T.accent, margin: "0 0 4px" }}>@{msg.from}</p>
-              )}
-              <p style={{ fontSize: 13, color: T.text, margin: 0, wordBreak: "break-word" }}>{msg.text}</p>
+              <div
+                style={{
+                  maxWidth: "70%",
+                  background: msg.side === "sent" ? T.accent : T.card,
+                  color: msg.side === "sent" ? "#000" : T.text,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  wordBreak: "break-word",
+                  border: msg.side === "received" ? `1px solid ${T.border}` : "none",
+                }}
+              >
+                <p style={{ margin: 0, fontWeight: 600, fontSize: 11 }}>
+                  {msg.side === "sent" ? "You" : msg.sender}
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.content}</p>
+                <span style={{ fontSize: 10, opacity: 0.7 }}>
+                  {new Date(msg.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+          ))
+        )}
       </div>
 
-      {/* Input */}
-      <div style={{ padding: "12px 16px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8 }}>
+      {/* Input Area */}
+      <form
+        onSubmit={handleSendMessage}
+        style={{
+          padding: "16px 20px",
+          borderTop: `1px solid ${T.border}`,
+          display: "flex",
+          gap: 8,
+        }}
+      >
         <input
           type="text"
-          placeholder={isConnected ? "Type a message..." : "Connecting..."}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          disabled={!isConnected}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Type a message..."
+          disabled={!connectionReady || sending}
           style={{
             flex: 1,
             padding: "10px 12px",
-            borderRadius: 8,
             background: "#0a0a0a",
             border: `1px solid ${T.border}`,
+            borderRadius: 8,
             color: T.text,
-            fontSize: 13,
             fontFamily: T.font,
+            fontSize: 13,
             outline: "none",
+            opacity: !connectionReady ? 0.5 : 1,
           }}
         />
+
         <button
-          onClick={handleSend}
-          disabled={!isConnected || !input.trim()}
+          type="submit"
+          disabled={!connectionReady || sending || !inputValue.trim()}
           style={{
-            padding: "10px 14px",
-            borderRadius: 8,
+            padding: "10px 16px",
             background: T.accent,
             color: "#000",
             border: "none",
+            borderRadius: 8,
             cursor: "pointer",
+            fontFamily: T.font,
+            fontWeight: 700,
+            fontSize: 12,
             display: "flex",
             alignItems: "center",
-            opacity: !isConnected || !input.trim() ? 0.4 : 1,
-            fontFamily: T.font,
+            gap: 6,
+            opacity: !connectionReady || !inputValue.trim() ? 0.5 : 1,
           }}
         >
-          <Send size={14} />
+          {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
+          Send
         </button>
-      </div>
+      </form>
     </div>
   );
 }

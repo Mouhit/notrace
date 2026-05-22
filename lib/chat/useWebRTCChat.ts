@@ -1,262 +1,295 @@
-"use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 
-export interface ChatMessage {
-  id: string;
-  from: string;
-  text: string;
-  timestamp: number;
-  isVoice?: boolean;
-  audioUrl?: string;
+interface UseWebRTCChatReturn {
+  sendMessage: (message: string) => Promise<boolean>;
+  peerConnection: RTCPeerConnection | null;
+  connectionReady: boolean;
+  connectionError: string | null;
+  remoteStream: MediaStream | null;
 }
 
-interface UseWebRTCChatOptions {
-  roomId: string;
-  localUsername: string;
-  remoteUsername: string;
-  onMessage: (msg: ChatMessage) => void;
-  onConnectionChange: (state: RTCPeerConnectionState) => void;
-}
+export function useWebRTCChat(roomId: string, username: string, otherUser: string): UseWebRTCChatReturn {
+  const [connectionReady, setConnectionReady] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-const ICE_SERVERS = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-];
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const signalPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const offerGeneratedRef = useRef(false);
+  const answerGeneratedRef = useRef(false);
 
-const SIGNAL_POLL_INTERVAL = 500; // Poll every 500ms for signals
-const SIGNAL_TIMEOUT = 30000; // Give up after 30s
-
-/**
- * WebRTC with database-backed signaling (NOT Realtime broadcast).
- * 
- * This fixes the race condition where caller sends offer before
- * listener is ready. Now signals persist in database and get polled.
- */
-export function useWebRTCChat({
-  roomId,
-  localUsername,
-  remoteUsername,
-  onMessage,
-  onConnectionChange,
-}: UseWebRTCChatOptions) {
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const dcRef = useRef<RTCDataChannel | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const initTimeRef = useRef(Date.now());
-  const isCaller = localUsername < remoteUsername; // deterministic caller
-
-  const sendSignal = useCallback(
-    async (type: string, payload: any) => {
-      try {
-        await fetch("/api/chat/signal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            room_id: roomId,
-            sender: localUsername,
-            receiver: remoteUsername,
-            type,
-            payload,
-          }),
-        });
-      } catch (err) {
-        console.error("Send signal error:", err);
-      }
-    },
-    [roomId, localUsername, remoteUsername]
-  );
-
-  const pollSignals = useCallback(async () => {
+  // ✅ Initialize WebRTC Connection
+  const initializePeerConnection = async () => {
     try {
-      const res = await fetch(
-        `/api/chat/signal?receiver=${encodeURIComponent(localUsername)}&room_id=${encodeURIComponent(roomId)}`
-      );
-      const data = await res.json();
-      if (data.signals && data.signals.length > 0) {
-        for (const signal of data.signals) {
-          if (pcRef.current) {
-            await handleSignal(signal.type, signal.payload);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Poll error:", err);
-    }
-  }, [localUsername, roomId]);
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: ["stun:stun.l.google.com:19302"] },
+          { urls: ["stun:stun1.l.google.com:19302"] },
+        ],
+      });
 
-  const setupDataChannel = useCallback((dc: RTCDataChannel) => {
-    dcRef.current = dc;
-    dc.onopen = () => {
-      setIsConnected(true);
-      console.log("📊 Data channel opened");
-    };
-    dc.onclose = () => {
-      setIsConnected(false);
-      console.log("📊 Data channel closed");
-    };
-    dc.onmessage = (e) => {
-      try {
-        const msg: ChatMessage = JSON.parse(e.data);
-        onMessage(msg);
-      } catch {
-        // Ignore malformed messages
-      }
-    };
-    dc.onerror = (err) => console.error("DC error:", err);
-  }, [onMessage]);
+      // ✅ Create data channel for messaging
+      const dataChannel = pc.createDataChannel("chat", { ordered: true });
+      setupDataChannel(dataChannel);
+      dataChannelRef.current = dataChannel;
 
-  const initPeerConnection = useCallback(() => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    pcRef.current = pc;
-
-    pc.onconnectionstatechange = () => {
-      console.log("🔌 Connection state:", pc.connectionState);
-      onConnectionChange(pc.connectionState);
-      if (pc.connectionState === "connected") setIsConnected(true);
-      if (
-        pc.connectionState === "disconnected" ||
-        pc.connectionState === "failed" ||
-        pc.connectionState === "closed"
-      ) {
-        setIsConnected(false);
-      }
-    };
-
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        console.log("🧊 Sending ICE candidate");
-        sendSignal("ice", { candidate: e.candidate });
-      }
-    };
-
-    // Caller creates data channel, listener waits for it
-    if (isCaller) {
-      const dc = pc.createDataChannel("chat", { ordered: true });
-      setupDataChannel(dc);
-      console.log("📢 Caller — created data channel");
-    } else {
-      pc.ondatachannel = (e) => {
-        console.log("📢 Listener — received data channel");
-        setupDataChannel(e.channel);
+      // Handle incoming data channels
+      pc.ondatachannel = (event) => {
+        setupDataChannel(event.channel);
+        dataChannelRef.current = event.channel;
       };
-    }
 
-    return pc;
-  }, [isCaller, onConnectionChange, sendSignal, setupDataChannel]);
+      // Handle connection state changes
+      pc.onconnectionstatechange = () => {
+        console.log(`Connection state: ${pc.connectionState}`);
 
-  const handleSignal = useCallback(
-    async (type: string, payload: any) => {
-      if (!pcRef.current) {
-        if (type === "offer") {
-          console.log("📥 Received offer, initializing PC");
-          initPeerConnection();
-        } else {
-          console.warn("Signal received before PC initialized:", type);
-          return;
+        if (pc.connectionState === "connected" || pc.connectionState === "completed") {
+          setConnectionReady(true);
+          toast.success("Connected to peer!");
+        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          setConnectionReady(false);
+          setConnectionError("Connection lost");
         }
-      }
+      };
 
-      const pc = pcRef.current!;
-
-      try {
-        if (type === "offer") {
-          console.log("📥 Setting remote description (offer)");
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          console.log("📤 Sending answer");
-          await sendSignal("answer", { sdp: answer });
-        } else if (type === "answer") {
-          console.log("📥 Setting remote description (answer)");
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-        } else if (type === "ice") {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } catch (err) {
-            console.error("ICE error:", err);
-          }
+      // Handle ICE candidates
+      pc.onicecandidate = async (event) => {
+        if (event.candidate) {
+          await storeICECandidate(event.candidate);
         }
-      } catch (err) {
-        console.error("Signal handling error:", err);
-      }
-    },
-    [initPeerConnection, sendSignal]
-  );
+      };
 
-  const startCall = useCallback(async () => {
-    console.log("📞 Starting call (caller)");
-    const pc = initPeerConnection();
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    console.log("📤 Sending offer");
-    await sendSignal("offer", { sdp: offer });
-  }, [initPeerConnection, sendSignal]);
-
-  const sendMessage = useCallback((text: string, from: string): ChatMessage | null => {
-    if (!dcRef.current || dcRef.current.readyState !== "open") {
-      console.warn("Data channel not ready");
+      peerConnectionRef.current = pc;
+      return pc;
+    } catch (error) {
+      console.error("Failed to initialize peer connection:", error);
+      setConnectionError("Failed to initialize connection");
       return null;
     }
+  };
 
-    const msg: ChatMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      from,
-      text,
-      timestamp: Date.now(),
+  // ✅ Setup data channel
+  const setupDataChannel = (dataChannel: RTCDataChannel) => {
+    dataChannel.onopen = () => {
+      console.log("Data channel opened");
+      setConnectionReady(true);
     };
 
-    dcRef.current.send(JSON.stringify(msg));
-    return msg;
-  }, []);
+    dataChannel.onclose = () => {
+      console.log("Data channel closed");
+      setConnectionReady(false);
+    };
 
-  const destroy = useCallback(() => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    dcRef.current?.close();
-    pcRef.current?.close();
-    pcRef.current = null;
-    dcRef.current = null;
-    setIsConnected(false);
-    console.log("🔌 Destroyed P2P connection");
-  }, []);
+    dataChannel.onerror = (error) => {
+      console.error("Data channel error:", error);
+      setConnectionError("Data channel error");
+    };
 
-  // Main effect — setup polling and initial call
-  useEffect(() => {
-    console.log("🚀 useWebRTCChat init:", { roomId, localUsername, remoteUsername, isCaller });
+    dataChannel.onmessage = (event) => {
+      console.log("Message received:", event.data);
+      // Parent component handles message display
+    };
+  };
 
-    // Start polling for signals
-    const pollInterval = setInterval(pollSignals, SIGNAL_POLL_INTERVAL);
-    pollIntervalRef.current = pollInterval;
+  // ✅ Generate and store WebRTC offer
+  const generateOffer = async (pc: RTCPeerConnection) => {
+    if (offerGeneratedRef.current) return;
 
-    // Timeout — give up after 30s if no connection
-    const timeoutId = setTimeout(() => {
-      if (!isConnected && pcRef.current?.connectionState !== "connected") {
-        console.error("⏱ Connection timeout after 30s");
-        destroy();
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      await fetch("/api/chat/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_id: roomId,
+          type: "offer",
+          data: offer,
+          from: username,
+          to: otherUser,
+        }),
+      });
+
+      offerGeneratedRef.current = true;
+      console.log("✅ Offer generated and stored");
+    } catch (error) {
+      console.error("Failed to generate offer:", error);
+      setConnectionError("Failed to generate offer");
+    }
+  };
+
+  // ✅ Generate and store WebRTC answer
+  const generateAnswer = async (pc: RTCPeerConnection, offer: any) => {
+    if (answerGeneratedRef.current) return;
+
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      await fetch("/api/chat/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_id: roomId,
+          type: "answer",
+          data: answer,
+          from: username,
+          to: otherUser,
+        }),
+      });
+
+      answerGeneratedRef.current = true;
+      console.log("✅ Answer generated and stored");
+    } catch (error) {
+      console.error("Failed to generate answer:", error);
+      setConnectionError("Failed to generate answer");
+    }
+  };
+
+  // ✅ Fetch and apply answer
+  const applyAnswerIfFound = async (pc: RTCPeerConnection) => {
+    try {
+      const res = await fetch(`/api/chat/signal?room_id=${roomId}&type=answer&from=${otherUser}`);
+      const data = await res.json();
+
+      if (data.signals && data.signals.length > 0) {
+        const answerData = data.signals[0].data;
+        if (pc.remoteDescription === null) {
+          await pc.setRemoteDescription(new RTCSessionDescription(answerData));
+          console.log("✅ Answer applied");
+        }
       }
-    }, SIGNAL_TIMEOUT);
+    } catch (error) {
+      console.error("Failed to apply answer:", error);
+    }
+  };
 
-    // Caller sends offer after a short delay to ensure both sides are polling
-    if (isCaller) {
-      const callTimeout = setTimeout(() => {
-        console.log("📞 Caller initiating offer");
-        startCall();
-      }, 1000);
+  // ✅ Store ICE candidate
+  const storeICECandidate = async (candidate: RTCIceCandidate) => {
+    try {
+      await fetch("/api/chat/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_id: roomId,
+          type: "ice-candidate",
+          data: candidate,
+          from: username,
+          to: otherUser,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to store ICE candidate:", error);
+    }
+  };
 
-      return () => {
-        clearInterval(pollInterval);
-        clearTimeout(callTimeout);
-        clearTimeout(timeoutId);
-        destroy();
-      };
+  // ✅ Fetch and add ICE candidates
+  const applyICECandidates = async (pc: RTCPeerConnection) => {
+    try {
+      const res = await fetch(`/api/chat/signal?room_id=${roomId}&type=ice-candidate&from=${otherUser}`);
+      const data = await res.json();
+
+      if (data.signals) {
+        for (const signal of data.signals) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+          } catch (error) {
+            console.error("Failed to add ICE candidate:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch ICE candidates:", error);
+    }
+  };
+
+  // ✅ Main WebRTC handshake logic - BOTH SIDES EXECUTE THIS
+  const startWebRTCHandshake = async () => {
+    const pc = await initializePeerConnection();
+    if (!pc) return;
+
+    console.log(`Starting WebRTC handshake for ${username} with ${otherUser}`);
+
+    // ✅ Poll for signals every 1 second (more frequent)
+    signalPollIntervalRef.current = setInterval(async () => {
+      try {
+        // Check if we have incoming offer
+        const offerRes = await fetch(`/api/chat/signal?room_id=${roomId}&type=offer&from=${otherUser}`);
+        const offerData = await offerRes.json();
+
+        if (offerData.signals && offerData.signals.length > 0 && !answerGeneratedRef.current) {
+          // ✅ We have an offer - generate answer
+          console.log(`${username} received offer from ${otherUser}`);
+          await generateAnswer(pc, offerData.signals[0].data);
+        } else if (!offerGeneratedRef.current && !answerGeneratedRef.current) {
+          // ✅ No offer found - generate our own offer
+          console.log(`${username} generating offer (no offer from ${otherUser})`);
+          await generateOffer(pc);
+        }
+
+        // Check for answer if we sent offer
+        if (offerGeneratedRef.current && !answerGeneratedRef.current) {
+          await applyAnswerIfFound(pc);
+        }
+
+        // Exchange ICE candidates
+        await applyICECandidates(pc);
+      } catch (error) {
+        console.error("Error in WebRTC handshake loop:", error);
+      }
+    }, 1000);
+  };
+
+  // ✅ Send message via data channel
+  const sendMessage = async (message: string): Promise<boolean> => {
+    try {
+      if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") {
+        toast.error("Connection not ready. Please wait...");
+        return false;
+      }
+
+      dataChannelRef.current.send(
+        JSON.stringify({
+          text: message,
+          sender: username,
+          timestamp: Date.now(),
+        })
+      );
+
+      return true;
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast.error("Failed to send message");
+      return false;
+    }
+  };
+
+  // Initialize on mount
+  useEffect(() => {
+    if (roomId && username && otherUser) {
+      startWebRTCHandshake();
     }
 
     return () => {
-      clearInterval(pollInterval);
-      clearTimeout(timeoutId);
-      destroy();
+      if (signalPollIntervalRef.current) {
+        clearInterval(signalPollIntervalRef.current);
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
     };
-  }, [roomId, localUsername, remoteUsername, isCaller, pollSignals, startCall, destroy, isConnected]);
+  }, [roomId, username, otherUser]);
 
-  return { isConnected, sendMessage, destroy };
+  return {
+    sendMessage,
+    peerConnection: peerConnectionRef.current,
+    connectionReady,
+    connectionError,
+    remoteStream,
+  };
 }
