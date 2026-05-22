@@ -1,30 +1,61 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ChatAuth from "@/components/chat/ChatAuth";
 import ChatWindow from "@/components/chat/ChatWindow";
 
-type AppState = "auth" | "chat";
+interface ChatUser {
+  username: string;
+  privateKey: string;
+}
 
 export default function ChatPage() {
-  const [appState, setAppState] = useState<AppState>("auth");
-  const [username, setUsername] = useState("");
-  const [privateKey, setPrivateKey] = useState("");
+  const [user, setUser] = useState<ChatUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleAuthenticated = (user: string, key: string) => {
-    setUsername(user);
-    setPrivateKey(key);
-    setAppState("chat");
+  useEffect(() => {
+    // Check if user is authenticated
+    const checkAuth = async () => {
+      try {
+        // Try to get user from session/localStorage
+        const storedUser = localStorage.getItem("chatUser");
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleAuthenticated = (username: string, privateKey: string) => {
+    const userData = { username, privateKey };
+    setUser(userData);
+    localStorage.setItem("chatUser", JSON.stringify(userData));
   };
 
   const handleLogout = () => {
-    setUsername("");
-    setPrivateKey("");
-    setAppState("auth");
+    setUser(null);
+    localStorage.removeItem("chatUser");
   };
 
-  if (appState === "auth") {
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#f0f0f0" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  // Not authenticated - show login/register
+  if (!user) {
     return <ChatAuth onAuthenticated={handleAuthenticated} onLogout={handleLogout} />;
   }
 
-  return <ChatWindow username={username} onLogout={handleLogout} />;
+  // Authenticated - show chat window
+  return <ChatWindow username={user.username} privateKey={user.privateKey} onLogout={handleLogout} />;
 }
