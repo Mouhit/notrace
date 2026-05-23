@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Send, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useWebRTCChat } from "@/lib/chat/useWebRTCChat";
@@ -20,7 +20,6 @@ interface Message {
   content: string;
   timestamp: number;
   side: "sent" | "received";
-  status?: "pending" | "sent" | "failed"; // ✅ NEW: Track message status
 }
 
 interface ActiveChatProps {
@@ -38,8 +37,6 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
 
   const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(roomId, username, otherUser);
 
-  const messageQueueRef = useRef<Array<{ content: string; id: string }>>([]); // ✅ NEW: Message queue
-
   // ✅ FIX: Update connection status
   useEffect(() => {
     if (connectionError) {
@@ -48,40 +45,10 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
     } else if (connectionReady) {
       setConnectionStatus("connected");
       console.log("✅ Connection ready");
-      // ✅ NEW: Process queued messages when connection ready
-      processMessageQueue();
     } else {
       setConnectionStatus("connecting");
     }
   }, [connectionReady, connectionError]);
-
-  // ✅ NEW: Process messages that were queued while connecting
-  const processMessageQueue = async () => {
-    if (messageQueueRef.current.length === 0) return;
-
-    console.log(`Processing ${messageQueueRef.current.length} queued messages`);
-
-    for (const queuedMessage of messageQueueRef.current) {
-      const success = await sendMessage(queuedMessage.content);
-      if (success) {
-        // Update message status to sent
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === queuedMessage.id ? { ...msg, status: "sent" } : msg
-          )
-        );
-      } else {
-        // Mark as failed
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === queuedMessage.id ? { ...msg, status: "failed" } : msg
-          )
-        );
-      }
-    }
-
-    messageQueueRef.current = [];
-  };
 
   // ✅ FIX: Listen for incoming messages from peer connection
   useEffect(() => {
@@ -92,13 +59,13 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
         const data = JSON.parse(event.data);
         console.log("Received message:", data);
 
+        // ✅ Add received message
         const newMessage: Message = {
           id: `msg-${Date.now()}-${Math.random()}`,
           sender: data.sender,
           content: data.text,
           timestamp: data.timestamp,
           side: "received",
-          status: "sent", // ✅ NEW: Received messages are already sent
         };
 
         setMessages((prev) => [...prev, newMessage]);
@@ -107,6 +74,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
       }
     };
 
+    // ✅ FIX: Properly handle data channel events without type issues
     const handleDataChannel = (event: RTCDataChannelEvent) => {
       console.log("Data channel received:", event.channel.label);
       event.channel.onmessage = handleDataChannelMessage;
@@ -119,66 +87,40 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
     };
   }, [peerConnection]);
 
-  // ✅ FIX: Send message with queue support
+  // ✅ FIX: Send message with validation
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!inputValue.trim()) return;
 
-    const messageId = `msg-${Date.now()}`;
-    const messageContent = inputValue;
+    if (!connectionReady) {
+      toast.error("Waiting for connection... Please wait");
+      return;
+    }
 
-    // ✅ NEW: Add message to state immediately (optimistic, but with pending status)
-    const newMessage: Message = {
-      id: messageId,
-      sender: username,
-      content: messageContent,
-      timestamp: Date.now(),
-      side: "sent",
-      status: connectionReady ? "pending" : "pending", // ✅ NEW: Mark as pending
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue("");
     setSending(true);
 
     try {
-      if (!connectionReady) {
-        // ✅ NEW: Queue message if not connected
-        console.log("Connection not ready - queueing message");
-        messageQueueRef.current.push({ content: messageContent, id: messageId });
-        toast.info("Connection not ready - message will be sent when connected");
-        setSending(false);
-        return;
-      }
-
-      const success = await sendMessage(messageContent);
+      const success = await sendMessage(inputValue);
 
       if (success) {
-        // ✅ NEW: Update message status to sent
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId ? { ...msg, status: "sent" } : msg
-          )
-        );
+        // ✅ Add to local UI (optimistic update)
+        const newMessage: Message = {
+          id: `msg-${Date.now()}`,
+          sender: username,
+          content: inputValue,
+          timestamp: Date.now(),
+          side: "sent",
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+        setInputValue("");
         console.log("Message sent successfully");
       } else {
-        // ✅ NEW: Mark as failed
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId ? { ...msg, status: "failed" } : msg
-          )
-        );
         toast.error("Failed to send message - connection not ready");
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      // ✅ NEW: Mark as failed
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, status: "failed" } : msg
-        )
-      );
       toast.error("Error sending message");
     } finally {
       setSending(false);
@@ -210,6 +152,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>@{otherUser}</h3>
 
+          {/* ✅ FIX: Better connection status indicator */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div
               style={{
@@ -232,6 +175,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
             </span>
           </div>
 
+          {/* ✅ FIX: Show error message if exists */}
           {connectionError && (
             <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
               <AlertCircle size={12} style={{ color: "#ff4444" }} />
@@ -294,13 +238,10 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
                   fontSize: 13,
                   wordBreak: "break-word",
                   border: msg.side === "received" ? `1px solid ${T.border}` : "none",
-                  opacity: msg.status === "failed" ? 0.5 : 1, // ✅ NEW: Dim failed messages
                 }}
               >
                 <p style={{ margin: 0, fontWeight: 600, fontSize: 11 }}>
                   {msg.side === "sent" ? "You" : msg.sender}
-                  {msg.status === "pending" && " (sending...)"} {/* ✅ NEW: Show pending */}
-                  {msg.status === "failed" && " (failed)"} {/* ✅ NEW: Show failed */}
                 </p>
                 <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.content}</p>
                 <span style={{ fontSize: 10, opacity: 0.7 }}>
@@ -312,7 +253,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
         )}
       </div>
 
-      {/* Input Area */}
+      {/* ✅ FIX: Input Area with better disabled state */}
       <form
         onSubmit={handleSendMessage}
         style={{
@@ -329,12 +270,12 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
           onChange={(e) => setInputValue(e.target.value)}
           placeholder={
             connectionStatus === "connecting"
-              ? "Connecting... You can type, message will be sent when ready"
+              ? "Connecting... Please wait"
               : connectionStatus === "error"
                 ? "Connection error - refresh page"
                 : "Type a message..."
           }
-          disabled={sending || connectionStatus === "error"} // ✅ NEW: Can type while connecting
+          disabled={!connectionReady || sending || connectionStatus === "error"}
           style={{
             flex: 1,
             padding: "10px 12px",
@@ -345,12 +286,13 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
             fontFamily: T.font,
             fontSize: 13,
             outline: "none",
+            opacity: !connectionReady ? 0.5 : 1,
           }}
         />
 
         <button
           type="submit"
-          disabled={sending || !inputValue.trim() || connectionStatus === "error"}
+          disabled={!connectionReady || sending || !inputValue.trim() || connectionStatus === "error"}
           style={{
             padding: "10px 16px",
             background: T.accent,
@@ -364,7 +306,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
             display: "flex",
             alignItems: "center",
             gap: 6,
-            opacity: !inputValue.trim() ? 0.5 : 1,
+            opacity: !connectionReady || !inputValue.trim() ? 0.5 : 1,
           }}
         >
           {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
