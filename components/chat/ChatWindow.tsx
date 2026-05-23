@@ -43,24 +43,22 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     acceptRequest,
     rejectRequest,
     cancelRequest,
-    outgoingRequestAccepted,  // ✅ NEW: From useRequests hook
-    acceptedRoomId,           // ✅ NEW: From useRequests hook
-    acceptedWith,             // ✅ NEW: From useRequests hook
+    outgoingRequestAccepted,
+    acceptedRoomId,
+    acceptedWith,
   } = useRequests(username);
 
-  // ✅ NEW: Watch for acceptance of outgoing request and auto-transition
+  // ✅ Auto-transition when request accepted
   useEffect(() => {
     if (outgoingRequestAccepted && acceptedRoomId && acceptedWith) {
       console.log(`✅ Auto-transitioning to chat with ${acceptedWith}`);
 
-      // Set up active chat state
       setActiveChat({
         roomId: acceptedRoomId,
         otherUser: acceptedWith,
-        initiator: "requester", // We sent the request
+        initiator: "requester",
       });
 
-      // Switch to chat view
       setView("chat");
 
       toast.success(`Connected with @${acceptedWith}!`);
@@ -76,7 +74,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
         setActiveChat({
           roomId,
           otherUser: requester,
-          initiator: "recipient", // They sent the request, we accepted
+          initiator: "recipient",
         });
 
         setView("chat");
@@ -98,7 +96,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     await cancelRequest(requestId);
   };
 
-  // Handle accepting from OutgoingRequests component (when acceptance auto-detected)
+  // Handle accepting from OutgoingRequests component
   const handleOutgoingRequestAccepted = (roomId: string, otherUser: string) => {
     setActiveChat({
       roomId,
@@ -116,7 +114,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     setActiveTab("incoming");
   };
 
-  // If authenticated and in chat view
+  // If in chat view
   if (view === "chat" && activeChat) {
     return (
       <div style={{ height: "100vh", background: T.bg, padding: 20, fontFamily: T.font }}>
@@ -163,7 +161,15 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 24,
+            borderBottom: `1px solid ${T.border}`,
+            paddingBottom: 12,
+          }}
+        >
           <button
             onClick={() => setActiveTab("incoming")}
             style={{
@@ -210,19 +216,16 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
         {/* Content */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
           {activeTab === "incoming" ? (
-            <IncomingRequests
-              requests={incomingRequests}
-              onAccept={handleAcceptRequest}
-              onReject={handleRejectRequest}
-            />
+            <IncomingRequests requests={incomingRequests} onAccept={handleAcceptRequest} onReject={handleRejectRequest} />
           ) : (
             <OutgoingRequests
               requests={outgoingRequests}
+              username={username} // ✅ FIX: Add username prop
               onCancel={handleCancelRequest}
               onAccepted={handleOutgoingRequestAccepted}
-              outgoingRequestAccepted={outgoingRequestAccepted}  // ✅ NEW
-              acceptedRoomId={acceptedRoomId}                   // ✅ NEW
-              acceptedWith={acceptedWith}                       // ✅ NEW
+              outgoingRequestAccepted={outgoingRequestAccepted}
+              acceptedRoomId={acceptedRoomId}
+              acceptedWith={acceptedWith}
             />
           )}
         </div>
