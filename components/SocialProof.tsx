@@ -6,12 +6,44 @@ import { toast } from "sonner";
 export default function SocialProof() {
   const [count, setCount] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
+  // ✅ Fetch initial count on mount
   useEffect(() => {
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then((d) => setCount(d.count))
-      .catch(() => setCount(100993));
+    const fetchCount = async () => {
+      try {
+        const res = await fetch("/api/stats");
+        const data = await res.json();
+        setCount(data.count);
+      } catch {
+        setCount(101054); // Fallback to initial count
+      }
+    };
+
+    fetchCount();
+
+    // ✅ Refetch every 60 seconds to check for increments
+    const interval = setInterval(async () => {
+      setIsUpdating(true);
+      try {
+        const res = await fetch("/api/stats");
+        const data = await res.json();
+        // ✅ Only update if changed
+        setCount((prev) => {
+          if (data.count !== prev) {
+            // Animation: flash effect when count changes
+            setTimeout(() => setIsUpdating(false), 500);
+            return data.count;
+          }
+          setIsUpdating(false);
+          return prev;
+        });
+      } catch {
+        setIsUpdating(false);
+      }
+    }, 60000); // Check every 60 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleCopyBadge = async () => {
@@ -26,7 +58,7 @@ export default function SocialProof() {
 
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-      <p className="text-xs text-slate-500 font-mono">
+      <p className={`text-xs text-slate-500 font-mono transition-all ${isUpdating ? "animate-pulse" : ""}`}>
         <span className="text-brand font-bold text-sm">
           {count.toLocaleString()}
         </span>{" "}
