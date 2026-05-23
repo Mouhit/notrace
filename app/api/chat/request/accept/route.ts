@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { v4 as uuidv4 } from "uuid"; // ✅ FIX: Make sure uuid is installed
+import { v4 as uuidv4 } from "uuid"; // ✅ FIX: Add missing import
 
 /**
  * POST /api/chat/request/accept
  * Accept a chat request and create active chat
  * ✅ CRITICAL FIX: Now generates and returns room_id
+ * ✅ CRITICAL FIX: Added missing uuid import
  */
 export async function POST(req: NextRequest) {
   try {

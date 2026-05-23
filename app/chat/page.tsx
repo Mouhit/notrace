@@ -13,18 +13,15 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated
+    // ✅ FIX: Don't store privateKey in localStorage (security issue)
+    // Only restore username from session if available
     const checkAuth = async () => {
       try {
-        // Try to get user from session/localStorage
-        const storedUser = localStorage.getItem("chatUser");
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-        }
+        // Check if there's a session (could be from session storage, not localStorage)
+        // For now, user must login on each page reload (safer)
+        setLoading(false);
       } catch (error) {
         console.error("Auth check error:", error);
-      } finally {
         setLoading(false);
       }
     };
@@ -33,13 +30,19 @@ export default function ChatPage() {
   }, []);
 
   const handleAuthenticated = (username: string, privateKey: string) => {
+    // ✅ FIX: Keep privateKey in memory ONLY (not in localStorage)
     const userData = { username, privateKey };
     setUser(userData);
-    localStorage.setItem("chatUser", JSON.stringify(userData));
+    
+    // ✅ FIX: NEVER store privateKey in localStorage
+    // Only store username if you need persistence
+    // localStorage.setItem("username", username);
+    // But NOT the privateKey!
   };
 
   const handleLogout = () => {
     setUser(null);
+    // ✅ FIX: Clear any sensitive data
     localStorage.removeItem("chatUser");
   };
 

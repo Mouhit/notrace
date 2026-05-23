@@ -9,45 +9,55 @@ interface ChatAuthProps {
   onLogout: () => void;
 }
 
-type AuthView = "register" | "login" | "chat";
+type ViewType = "login" | "register" | "chat";
 
 export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
-  const [view, setView] = useState<AuthView>("login");
+  const [view, setView] = useState<ViewType>("login");
   const [username, setUsername] = useState("");
+  const [privateKey, setPrivateKey] = useState(""); // ✅ FIX: Add privateKey state
 
-  if (view === "register") {
+  // ✅ FIX: Store BOTH username and privateKey when authenticated
+  const handleAuthenticated = (authenticatedUsername: string, authenticatedPrivateKey: string) => {
+    setUsername(authenticatedUsername);
+    setPrivateKey(authenticatedPrivateKey); // ✅ FIX: Store privateKey
+    setView("chat");
+    onAuthenticated(authenticatedUsername, authenticatedPrivateKey);
+  };
+
+  const handleLogout = () => {
+    setUsername("");
+    setPrivateKey(""); // ✅ FIX: Clear privateKey on logout
+    setView("login");
+    onLogout();
+  };
+
+  // Chat view - user is authenticated
+  if (view === "chat") {
     return (
-      <ChatRegister
-        onRegistered={(username) => {
-          setUsername(username);
-          setView("login");
-        }}
-        onSwitchToLogin={() => setView("login")}
+      <ChatWindow
+        username={username}
+        privateKey={privateKey} // ✅ FIX: Pass privateKey to ChatWindow
+        onLogout={handleLogout}
       />
     );
   }
 
+  // Login view
   if (view === "login") {
     return (
       <ChatLogin
-        onLoggedIn={(username, privateKey) => {
-          setUsername(username);
-          onAuthenticated(username, privateKey);
-          setView("chat");
-        }}
+        onLoggedIn={handleAuthenticated} // ✅ FIX: Pass full handler
         onSwitchToRegister={() => setView("register")}
       />
     );
   }
 
-  if (view === "chat") {
+  // Register view
+  if (view === "register") {
     return (
-      <ChatWindow
-        username={username}
-        onLogout={() => {
-          setView("login");
-          onLogout();
-        }}
+      <ChatRegister
+        onRegistered={handleAuthenticated} // ✅ FIX: Pass full handler
+        onSwitchToLogin={() => setView("login")}
       />
     );
   }

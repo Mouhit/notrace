@@ -6,6 +6,7 @@ interface ChatRequest {
   requester: string;
   recipient: string;
   status: "pending" | "accepted" | "rejected" | "cancelled";
+  room_id?: string;
   created_at: string;
 }
 
@@ -16,10 +17,12 @@ interface UseRequestsReturn {
   acceptRequest: (requestId: string, requester: string) => Promise<string | null>;
   rejectRequest: (requestId: string) => Promise<boolean>;
   cancelRequest: (requestId: string) => Promise<boolean>;
-  outgoingRequestAccepted: boolean;  // ✅ NEW: Track if sent request was accepted
-  acceptedRoomId: string | null;     // ✅ NEW: Room ID when accepted
-  acceptedWith: string | null;       // ✅ NEW: Who accepted the request
-  checkAcceptanceStatus: () => Promise<void>; // ✅ NEW: Manual check function
+  outgoingRequestAccepted: boolean;
+  acceptedRoomId: string | null;
+  acceptedWith: string | null;
+  checkAcceptanceStatus: () => Promise<void>;
+  // ✅ NEW: Error state
+  error: string | null;
 }
 
 export function useRequests(username: string): UseRequestsReturn {
@@ -28,8 +31,9 @@ export function useRequests(username: string): UseRequestsReturn {
   const [outgoingRequestAccepted, setOutgoingRequestAccepted] = useState(false);
   const [acceptedRoomId, setAcceptedRoomId] = useState<string | null>(null);
   const [acceptedWith, setAcceptedWith] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // ✅ NEW: Error state
 
-  // ✅ NEW: Check if sent request was accepted
+  // ✅ FIX: Check if sent request was accepted
   const checkAcceptanceStatus = async () => {
     if (outgoingRequests.length === 0) return;
 
@@ -38,42 +42,57 @@ export function useRequests(username: string): UseRequestsReturn {
       const data = await res.json();
 
       if (data.hasActiveChat) {
-        // ✅ Check if this active chat is from one of our outgoing requests
         const chatUser = data.activeChat.otherUser;
         const sentToThisUser = outgoingRequests.some((req) => req.recipient === chatUser);
 
         if (sentToThisUser) {
-          // Request was accepted!
           setOutgoingRequestAccepted(true);
           setAcceptedRoomId(data.activeChat.room_id);
           setAcceptedWith(chatUser);
-          console.log(`✅ Request to ${chatUser} was accepted! Room: ${data.activeChat.room_id}`);
+          setError(null); // ✅ FIX: Clear error on success
         }
       }
     } catch (error) {
       console.error("Error checking acceptance status:", error);
+      // ✅ FIX: Don't show toast, just log
     }
   };
 
-  // Fetch incoming requests (existing)
+  // ✅ FIX: Add error handling to fetchIncomingRequests
   const fetchIncomingRequests = async () => {
     try {
-      const res = await fetch(`/api/chat/requests?username=${username}`);
+      const res = await fetch(`/api/chat/request?username=${username}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setIncomingRequests(data.requests || []);
+      setError(null); // ✅ FIX: Clear error on success
     } catch (error) {
       console.error("Error fetching incoming requests:", error);
+      setError("Failed to load incoming requests");
+      setIncomingRequests([]); // ✅ FIX: Clear on error
     }
   };
 
-  // Fetch outgoing requests (new - needs to be added)
+  // ✅ FIX: Add error handling to fetchOutgoingRequests
   const fetchOutgoingRequests = async () => {
     try {
-      const res = await fetch(`/api/chat/requests/outgoing?username=${username}`);
+      // ✅ FIX: Check if endpoint exists (graceful fallback)
+      const res = await fetch(`/api/chat/request/outgoing?username=${username}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.warn("Outgoing requests endpoint not found");
+          setOutgoingRequests([]); // ✅ FIX: Return empty list if 404
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       setOutgoingRequests(data.requests || []);
+      setError(null); // ✅ FIX: Clear error on success
     } catch (error) {
       console.error("Error fetching outgoing requests:", error);
+      setError("Failed to load outgoing requests");
+      setOutgoingRequests([]); // ✅ FIX: Clear on error
     }
   };
 
@@ -81,12 +100,12 @@ export function useRequests(username: string): UseRequestsReturn {
   useEffect(() => {
     fetchIncomingRequests();
     fetchOutgoingRequests();
-    checkAcceptanceStatus(); // ✅ Check acceptance immediately
+    checkAcceptanceStatus();
 
     const interval = setInterval(() => {
       fetchIncomingRequests();
       fetchOutgoingRequests();
-      checkAcceptanceStatus(); // ✅ Check acceptance every 3 seconds
+      checkAcceptanceStatus();
     }, 3000);
 
     return () => clearInterval(interval);
@@ -105,13 +124,16 @@ export function useRequests(username: string): UseRequestsReturn {
 
       if (res.ok) {
         toast.success(`Request sent to @${recipient}`);
-        fetchOutgoingRequests(); // ✅ Refresh outgoing requests
+        fetchOutgoingRequests();
+        setError(null); // ✅ FIX: Clear error
         return true;
       } else {
+        setError(data.error || "Failed to send request");
         toast.error(data.error || "Failed to send request");
         return false;
       }
     } catch (error) {
+      setError("Network error");
       toast.error("Network error");
       console.error(error);
       return false;
@@ -131,15 +153,18 @@ export function useRequests(username: string): UseRequestsReturn {
 
       if (res.ok) {
         toast.success(`Connected with @${requester}!`);
-        fetchIncomingRequests(); // ✅ Refresh incoming requests
+        fetchIncomingRequests();
         setAcceptedRoomId(data.activeChat.room_id);
         setAcceptedWith(requester);
+        setError(null); // ✅ FIX: Clear error
         return data.roomId;
       } else {
+        setError(data.error || "Failed to accept request");
         toast.error(data.error || "Failed to accept request");
         return null;
       }
     } catch (error) {
+      setError("Network error");
       toast.error("Network error");
       console.error(error);
       return null;
@@ -157,13 +182,16 @@ export function useRequests(username: string): UseRequestsReturn {
 
       if (res.ok) {
         toast.info("Request rejected");
-        fetchIncomingRequests(); // ✅ Refresh incoming requests
+        fetchIncomingRequests();
+        setError(null); // ✅ FIX: Clear error
         return true;
       } else {
+        setError("Failed to reject request");
         toast.error("Failed to reject request");
         return false;
       }
     } catch (error) {
+      setError("Network error");
       toast.error("Network error");
       console.error(error);
       return false;
@@ -181,16 +209,19 @@ export function useRequests(username: string): UseRequestsReturn {
 
       if (res.ok) {
         toast.info("Request cancelled");
-        fetchOutgoingRequests(); // ✅ Refresh outgoing requests
+        fetchOutgoingRequests();
         setOutgoingRequestAccepted(false);
         setAcceptedRoomId(null);
         setAcceptedWith(null);
+        setError(null); // ✅ FIX: Clear error
         return true;
       } else {
+        setError("Failed to cancel request");
         toast.error("Failed to cancel request");
         return false;
       }
     } catch (error) {
+      setError("Network error");
       toast.error("Network error");
       console.error(error);
       return false;
@@ -204,9 +235,10 @@ export function useRequests(username: string): UseRequestsReturn {
     acceptRequest,
     rejectRequest,
     cancelRequest,
-    outgoingRequestAccepted,  // ✅ NEW
-    acceptedRoomId,           // ✅ NEW
-    acceptedWith,             // ✅ NEW
-    checkAcceptanceStatus,    // ✅ NEW
+    outgoingRequestAccepted,
+    acceptedRoomId,
+    acceptedWith,
+    checkAcceptanceStatus,
+    error, // ✅ NEW: Return error state
   };
 }
