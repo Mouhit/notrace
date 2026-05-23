@@ -24,8 +24,8 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
   const offerGeneratedRef = useRef(false);
   const answerGeneratedRef = useRef(false);
   const processedICECandidatesRef = useRef<Set<string>>(new Set());
-  const pollStartTimeRef = useRef<number>(0); // ✅ NEW: Track polling duration
-  const failedFetchCountRef = useRef<number>(0); // ✅ NEW: Track failed fetches
+  const pollStartTimeRef = useRef<number>(0);
+  const failedFetchCountRef = useRef<number>(0);
 
   // ✅ Initialize WebRTC Connection
   const initializePeerConnection = async () => {
@@ -50,10 +50,11 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       pc.onconnectionstatechange = () => {
         console.log(`Connection state: ${pc.connectionState}`);
 
-        if (pc.connectionState === "connected" || pc.connectionState === "completed") {
+        // ✅ FIX: Use correct connection state values
+        if (pc.connectionState === "connected") {
           setConnectionReady(true);
           setConnectionError(null);
-          clearTimeout(connectionTimeoutRef.current);
+          clearTimeout(connectionTimeoutRef.current!);
           console.log("✅ Connection established");
         } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
           setConnectionReady(false);
@@ -70,7 +71,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       peerConnectionRef.current = pc;
 
-      // ✅ Connection timeout (10 seconds)
+      // Connection timeout (10 seconds)
       connectionTimeoutRef.current = setTimeout(() => {
         if (!connectionReady && !connectionError) {
           setConnectionError("Connection timeout - WebRTC handshake taking too long");
@@ -86,7 +87,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
-  // ✅ Setup data channel
+  // Setup data channel
   const setupDataChannel = (dataChannel: RTCDataChannel) => {
     console.log(`Setting up data channel: ${dataChannel.label}`);
 
@@ -111,7 +112,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     };
   };
 
-  // ✅ Generate and store WebRTC offer
+  // Generate and store WebRTC offer
   const generateOffer = async (pc: RTCPeerConnection) => {
     if (offerGeneratedRef.current) {
       console.log("Offer already generated");
@@ -123,7 +124,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // ✅ FIX: Add timeout to fetch
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -142,16 +142,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       clearTimeout(timeoutId);
       offerGeneratedRef.current = true;
-      failedFetchCountRef.current = 0; // ✅ Reset on success
+      failedFetchCountRef.current = 0;
       console.log("✅ Offer generated and stored");
     } catch (error) {
       console.error("Failed to generate offer:", error);
-      failedFetchCountRef.current++; // ✅ Track failures
+      failedFetchCountRef.current++;
       setConnectionError("Failed to generate offer");
     }
   };
 
-  // ✅ Generate and store WebRTC answer
+  // Generate and store WebRTC answer
   const generateAnswer = async (pc: RTCPeerConnection, offer: any) => {
     if (answerGeneratedRef.current) {
       console.log("Answer already generated");
@@ -165,7 +165,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      // ✅ FIX: Add timeout to fetch
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -184,19 +183,18 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       clearTimeout(timeoutId);
       answerGeneratedRef.current = true;
-      failedFetchCountRef.current = 0; // ✅ Reset on success
+      failedFetchCountRef.current = 0;
       console.log("✅ Answer generated and stored");
     } catch (error) {
       console.error("Failed to generate answer:", error);
-      failedFetchCountRef.current++; // ✅ Track failures
+      failedFetchCountRef.current++;
       setConnectionError("Failed to generate answer");
     }
   };
 
-  // ✅ Fetch and apply answer
+  // Fetch and apply answer
   const applyAnswerIfFound = async (pc: RTCPeerConnection) => {
     try {
-      // ✅ FIX: Add timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -219,10 +217,9 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
-  // ✅ Store ICE candidate
+  // Store ICE candidate
   const storeICECandidate = async (candidate: RTCIceCandidate) => {
     try {
-      // ✅ FIX: Add timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -245,10 +242,9 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
-  // ✅ Fetch and add ICE candidates (with deduplication)
+  // Fetch and add ICE candidates (with deduplication)
   const applyICECandidates = async (pc: RTCPeerConnection) => {
     try {
-      // ✅ FIX: Add timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -280,18 +276,18 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
-  // ✅ Main WebRTC handshake logic with polling timeout
+  // Main WebRTC handshake logic with polling timeout
   const startWebRTCHandshake = async () => {
     const pc = await initializePeerConnection();
     if (!pc) return;
 
     console.log(`Starting WebRTC handshake for ${username} with ${otherUser}`);
 
-    pollStartTimeRef.current = Date.now(); // ✅ Track when polling started
+    pollStartTimeRef.current = Date.now();
 
-    // ✅ Poll for signals every 1 second (with timeout)
+    // Poll for signals every 1 second (with timeout)
     signalPollIntervalRef.current = setInterval(async () => {
-      // ✅ FIX: Stop polling after 30 seconds if no connection
+      // Stop polling after 30 seconds if no connection
       const elapsedTime = Date.now() - pollStartTimeRef.current;
       if (elapsedTime > MAX_POLLING_DURATION && !connectionReady) {
         console.warn("Polling timeout - stopping after 30 seconds");
@@ -318,13 +314,11 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
         await applyICECandidates(pc);
 
-        // ✅ FIX: Reset failure count on successful poll
         failedFetchCountRef.current = 0;
       } catch (error) {
         console.error("Error in WebRTC handshake loop:", error);
-        failedFetchCountRef.current++; // ✅ Track consecutive failures
+        failedFetchCountRef.current++;
 
-        // ✅ FIX: Stop if too many consecutive failures
         if (failedFetchCountRef.current > 5) {
           clearInterval(signalPollIntervalRef.current!);
           setConnectionError("WebRTC connection failed - too many network errors");
@@ -333,7 +327,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }, POLLING_INTERVAL);
   };
 
-  // ✅ Send message via data channel (don't allow before connection)
+  // Send message via data channel
   const sendMessage = async (message: string): Promise<boolean> => {
     try {
       if (!dataChannelRef.current || dataChannelRef.current.readyState !== "open") {
@@ -357,7 +351,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
-  // ✅ Initialize on mount
+  // Initialize on mount
   useEffect(() => {
     if (roomId && username && otherUser) {
       startWebRTCHandshake();

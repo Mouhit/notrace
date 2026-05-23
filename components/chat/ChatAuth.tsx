@@ -16,21 +16,19 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
   const [username, setUsername] = useState("");
   const [privateKey, setPrivateKey] = useState("");
 
-  // ✅ FIX: Handle ChatRegister/ChatLogin callbacks that return only username
-  // They internally get privateKey, so we need to reconstruct it
+  // ✅ FIXED: Now accepts 2 args to match ChatLogin callback signature
+  const handleLoggedIn = (loggedInUsername: string, loggedInPrivateKey: string) => {
+    setUsername(loggedInUsername);
+    setPrivateKey(loggedInPrivateKey);
+    setView("chat");
+    onAuthenticated(loggedInUsername, loggedInPrivateKey);
+  };
+
+  // ✅ OK: Accepts 1 arg to match ChatRegister callback signature
   const handleRegistered = (registeredUsername: string) => {
     setUsername(registeredUsername);
     setView("chat");
-    // Temporarily use empty privateKey - it will be set from IndexedDB or session
     onAuthenticated(registeredUsername, "");
-  };
-
-  // ✅ Same for login
-  const handleLoggedIn = (loggedInUsername: string) => {
-    setUsername(loggedInUsername);
-    setView("chat");
-    // Temporarily use empty privateKey - it will be set from IndexedDB or session
-    onAuthenticated(loggedInUsername, "");
   };
 
   const handleLogout = () => {
@@ -40,7 +38,6 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
     onLogout();
   };
 
-  // Chat view - user is authenticated
   if (view === "chat") {
     return (
       <ChatWindow
@@ -51,7 +48,6 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
     );
   }
 
-  // Login view
   if (view === "login") {
     return (
       <ChatLogin
@@ -61,7 +57,6 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
     );
   }
 
-  // Register view
   if (view === "register") {
     return (
       <ChatRegister
