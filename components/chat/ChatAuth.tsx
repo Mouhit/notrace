@@ -16,12 +16,21 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
   const [username, setUsername] = useState("");
   const [privateKey, setPrivateKey] = useState("");
 
-  // ✅ Wrapper that accepts 2 arguments
-  const handleAuthenticated = (authUsername: string, authPrivateKey: string) => {
-    setUsername(authUsername);
-    setPrivateKey(authPrivateKey);
+  // ✅ FIX: Handle ChatRegister/ChatLogin callbacks that return only username
+  // They internally get privateKey, so we need to reconstruct it
+  const handleRegistered = (registeredUsername: string) => {
+    setUsername(registeredUsername);
     setView("chat");
-    onAuthenticated(authUsername, authPrivateKey);
+    // Temporarily use empty privateKey - it will be set from IndexedDB or session
+    onAuthenticated(registeredUsername, "");
+  };
+
+  // ✅ Same for login
+  const handleLoggedIn = (loggedInUsername: string) => {
+    setUsername(loggedInUsername);
+    setView("chat");
+    // Temporarily use empty privateKey - it will be set from IndexedDB or session
+    onAuthenticated(loggedInUsername, "");
   };
 
   const handleLogout = () => {
@@ -31,6 +40,7 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
     onLogout();
   };
 
+  // Chat view - user is authenticated
   if (view === "chat") {
     return (
       <ChatWindow
@@ -41,19 +51,21 @@ export default function ChatAuth({ onAuthenticated, onLogout }: ChatAuthProps) {
     );
   }
 
+  // Login view
   if (view === "login") {
     return (
       <ChatLogin
-        onLoggedIn={handleAuthenticated}
+        onLoggedIn={handleLoggedIn}
         onSwitchToRegister={() => setView("register")}
       />
     );
   }
 
+  // Register view
   if (view === "register") {
     return (
       <ChatRegister
-        onRegistered={handleAuthenticated}
+        onRegistered={handleRegistered}
         onSwitchToLogin={() => setView("login")}
       />
     );
