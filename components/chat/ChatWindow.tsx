@@ -50,10 +50,10 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     acceptedWith,
   } = useRequests(username);
 
-  // ✅ Auto-transition when request accepted
+  // ✅ AUTO-TRANSITION: When outgoing request is accepted
   useEffect(() => {
     if (outgoingRequestAccepted && acceptedRoomId && acceptedWith) {
-      console.log(`✅ Auto-transitioning to chat with ${acceptedWith}`);
+      console.log(`✅ ACCEPTED! Auto-transitioning to chat with ${acceptedWith}`);
 
       setActiveChat({
         roomId: acceptedRoomId,
@@ -62,12 +62,49 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
       });
 
       setView("chat");
-
       toast.success(`Connected with @${acceptedWith}!`);
     }
   }, [outgoingRequestAccepted, acceptedRoomId, acceptedWith]);
 
-  // ✅ FIXED: Handle accepting incoming request
+  // ✅ NEW: Poll for active chats directly (not just request acceptance)
+  useEffect(() => {
+    if (view === "chat" || outgoingRequestAccepted) {
+      return; // Already in chat or transitioning
+    }
+
+    const checkActiveChats = async () => {
+      try {
+        const res = await fetch(`/api/chat/active?username=${username}`);
+        const data = await res.json();
+
+        console.log(`🔵 Active chat check for ${username}:`, data);
+
+        if (data.hasActiveChat && data.activeChat && data.activeChat.room_id) {
+          console.log(`✅ FOUND ACTIVE CHAT! Room: ${data.activeChat.room_id}`);
+
+          setActiveChat({
+            roomId: data.activeChat.room_id,
+            otherUser: data.activeChat.otherUser,
+            initiator: "requester", // Assume requester for now
+          });
+
+          setView("chat");
+          toast.success(`Chat ready with @${data.activeChat.otherUser}!`);
+        }
+      } catch (err) {
+        console.error("Error checking active chats:", err);
+      }
+    };
+
+    // Check immediately
+    checkActiveChats();
+
+    // Then check every 2 seconds
+    const interval = setInterval(checkActiveChats, 2000);
+
+    return () => clearInterval(interval);
+  }, [username, view, outgoingRequestAccepted]);
+
   const handleAcceptRequest = async (requestId: string, requester: string) => {
     try {
       console.log(`Accepting request from ${requester}...`);
@@ -75,7 +112,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
 
       if (roomId) {
         console.log(`✅ Request accepted! Room ID: ${roomId}`);
-        
+
         setActiveChat({
           roomId,
           otherUser: requester,
@@ -94,17 +131,14 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     }
   };
 
-  // Handle rejecting incoming request
   const handleRejectRequest = async (requestId: string) => {
     await rejectRequest(requestId);
   };
 
-  // Handle canceling outgoing request
   const handleCancelRequest = async (requestId: string) => {
     await cancelRequest(requestId);
   };
 
-  // Handle accepting from OutgoingRequests component
   const handleOutgoingRequestAccepted = (roomId: string, otherUser: string) => {
     setActiveChat({
       roomId,
@@ -115,19 +149,16 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     setView("chat");
   };
 
-  // Handle request sent from search
   const handleRequestSent = (recipient: string) => {
     setActiveTab("outgoing");
   };
 
-  // Close active chat and return to requests
   const handleCloseChat = () => {
     setActiveChat(null);
     setView("requests");
     setActiveTab("incoming");
   };
 
-  // If in chat view
   if (view === "chat" && activeChat) {
     return (
       <div style={{ height: "100vh", background: T.bg, padding: 20, fontFamily: T.font }}>
@@ -141,11 +172,9 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     );
   }
 
-  // Requests view
   return (
     <div style={{ minHeight: "100vh", background: T.bg, padding: 20, fontFamily: T.font }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <MessageSquare size={32} style={{ color: T.accent }} />
@@ -173,7 +202,6 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
           </div>
         </div>
 
-        {/* User Search Component */}
         <UserSearch
           username={username}
           onRequestSent={handleRequestSent}
@@ -181,7 +209,6 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
           sendRequest={sendRequest}
         />
 
-        {/* Tabs */}
         <div
           style={{
             display: "flex",
@@ -234,7 +261,6 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
           </button>
         </div>
 
-        {/* Content */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
           {activeTab === "incoming" ? (
             <IncomingRequests
