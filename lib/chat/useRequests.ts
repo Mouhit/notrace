@@ -38,10 +38,7 @@ export function useRequests(username: string): UseRequestsReturn {
   const [acceptedWith, setAcceptedWith] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ NEW: Track pending send requests to prevent duplicates
   const pendingSendRef = useRef<Set<string>>(new Set());
-
-  // ✅ NEW: Track last cancel time to prevent duplicate cancels
   const lastCancelRef = useRef<Map<string, number>>(new Map());
 
   const fetchIncomingRequests = async () => {
@@ -62,7 +59,6 @@ export function useRequests(username: string): UseRequestsReturn {
       const res = await fetch(`/api/chat/request/outgoing?username=${username}`);
 
       if (res.status === 404) {
-        // Endpoint doesn't exist yet
         setOutgoingRequests([]);
         return;
       }
@@ -97,16 +93,13 @@ export function useRequests(username: string): UseRequestsReturn {
     }
   };
 
-  // ✅ FIXED: Send request with deduplication
   const sendRequest = async (recipient: string): Promise<boolean> => {
     try {
-      // ✅ NEW: Check if request already pending for this recipient
       if (pendingSendRef.current.has(recipient)) {
         toast.info("Request already being sent...");
         return false;
       }
 
-      // ✅ NEW: Check if request already exists in outgoing list
       const alreadySent = outgoingRequests.some(
         (req) => req.recipient === recipient && req.status === "pending"
       );
@@ -115,7 +108,6 @@ export function useRequests(username: string): UseRequestsReturn {
         return false;
       }
 
-      // ✅ NEW: Mark as pending
       pendingSendRef.current.add(recipient);
 
       const res = await fetch("/api/chat/request", {
@@ -146,41 +138,57 @@ export function useRequests(username: string): UseRequestsReturn {
       toast.error("Failed to send request");
       return false;
     } finally {
-      // ✅ NEW: Remove from pending
       pendingSendRef.current.delete(recipient);
     }
   };
 
-  // ✅ FIXED: Accept request
+  // ✅ FIXED: Accept request with proper logging
   const acceptRequest = async (requestId: string, requester: string): Promise<string | null> => {
     try {
+      console.log(`🔵 Accepting request:`, { requestId, requester, recipient: username });
+
+      const payload = { requestId, requester, recipient: username };
+      console.log(`📤 Sending payload to /api/chat/request/accept:`, payload);
+
       const res = await fetch("/api/chat/request/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, requester }),
+        body: JSON.stringify(payload),
       });
 
+      console.log(`📥 Response status:`, res.status);
+
       const data = await res.json();
+      console.log(`📥 Response data:`, data);
 
       if (res.ok) {
+        console.log(`✅ Accept successful! Room ID: ${data.roomId}`);
         toast.success(`Connected with @${requester}!`);
-        await fetchIncomingRequests();
+        fetchIncomingRequests();
+        
+        if (data.activeChat && data.activeChat.room_id) {
+          setAcceptedRoomId(data.activeChat.room_id);
+        } else if (data.roomId) {
+          setAcceptedRoomId(data.roomId);
+        }
+        
+        setAcceptedWith(requester);
         setError(null);
-        return data.roomId;
+        return data.roomId || data.activeChat?.room_id || null;
       } else {
+        console.error(`❌ Accept failed:`, data);
         setError(data.error || "Failed to accept request");
         toast.error(data.error || "Failed to accept request");
         return null;
       }
     } catch (error) {
-      console.error("Error accepting request:", error);
-      setError("Failed to accept request");
-      toast.error("Failed to accept request");
+      console.error("❌ Accept error:", error);
+      setError("Network error");
+      toast.error("Network error");
       return null;
     }
   };
 
-  // ✅ FIXED: Reject request
   const rejectRequest = async (requestId: string) => {
     try {
       const res = await fetch("/api/chat/request/reject", {
@@ -205,10 +213,8 @@ export function useRequests(username: string): UseRequestsReturn {
     }
   };
 
-  // ✅ FIXED: Cancel request with duplicate prevention
   const cancelRequest = async (requestId: string) => {
     try {
-      // ✅ NEW: Prevent duplicate cancels in same second
       const lastCancel = lastCancelRef.current.get(requestId) || 0;
       if (Date.now() - lastCancel < 1000) {
         toast.info("Already canceling...");
@@ -225,7 +231,6 @@ export function useRequests(username: string): UseRequestsReturn {
 
       if (res.ok) {
         toast.info("Request cancelled");
-        // ✅ NEW: Immediately remove from state
         setOutgoingRequests((prev) => prev.filter((req) => req.id !== requestId));
         setError(null);
       } else {
@@ -240,7 +245,6 @@ export function useRequests(username: string): UseRequestsReturn {
     }
   };
 
-  // Poll incoming AND outgoing requests + check acceptance
   useEffect(() => {
     if (!username) return;
 
