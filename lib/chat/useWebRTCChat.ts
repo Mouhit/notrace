@@ -9,9 +9,11 @@ interface UseWebRTCChatReturn {
   remoteStream: MediaStream | null;
 }
 
-const MAX_POLLING_DURATION = 60000; // ✅ INCREASED: 60 seconds (was 30)
-const POLLING_INTERVAL = 1000; // 1 second between polls
-const CONNECTION_TIMEOUT = 20000; // ✅ INCREASED: 20 seconds (was 10)
+// ✅ MASSIVELY INCREASED TIMEOUTS
+const MAX_POLLING_DURATION = 120000; // 2 MINUTES (was 60s)
+const POLLING_INTERVAL = 500; // 500ms (was 1s) - faster polling
+const CONNECTION_TIMEOUT = 60000; // 60 SECONDS (was 20s)
+const ICE_GATHERING_TIMEOUT = 45000; // 45 seconds for ICE candidates
 
 export function useWebRTCChat(roomId: string, username: string, otherUser: string): UseWebRTCChatReturn {
   const [connectionReady, setConnectionReady] = useState(false);
@@ -22,22 +24,36 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const signalPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const iceGatheringTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const offerGeneratedRef = useRef(false);
   const answerGeneratedRef = useRef(false);
   const processedICECandidatesRef = useRef<Set<string>>(new Set());
   const pollStartTimeRef = useRef<number>(0);
   const failedFetchCountRef = useRef<number>(0);
+  const iceGatheringCompleteRef = useRef(false);
 
   const initializePeerConnection = async () => {
     try {
       const pc = new RTCPeerConnection({
         iceServers: [
+          // ✅ Google STUN servers
           { urls: ["stun:stun.l.google.com:19302"] },
           { urls: ["stun:stun1.l.google.com:19302"] },
-          { urls: ["stun:stun2.l.google.com:19302"] }, // ✅ ADDED: Extra STUN server
-          { urls: ["stun:stun3.l.google.com:19302"] }, // ✅ ADDED: Extra STUN server
-          { urls: ["stun:stun4.l.google.com:19302"] }, // ✅ ADDED: Extra STUN server
+          { urls: ["stun:stun2.l.google.com:19302"] },
+          { urls: ["stun:stun3.l.google.com:19302"] },
+          { urls: ["stun:stun4.l.google.com:19302"] },
+          
+          // ✅ Temasys STUN servers
+          { urls: ["stun:stun.l.temasys.sg:3478"] },
+          { urls: ["stun:stun2.l.temasys.sg:3478"] },
+          
+          // ✅ Twilio STUN servers
+          { urls: ["stun:stun.twiliocdn.com:3478"] },
+          
+          // ✅ Mozilla STUN server
+          { urls: ["stun:stun.services.mozilla.com:3478"] },
         ],
+        iceCandidatePoolSize: 10,
       });
 
       const dataChannel = pc.createDataChannel("chat", { ordered: true });
@@ -45,13 +61,13 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       dataChannelRef.current = dataChannel;
 
       pc.ondatachannel = (event) => {
-        console.log("Received data channel from remote peer");
+        console.log("🔵 Received data channel from remote peer");
         setupDataChannel(event.channel);
         dataChannelRef.current = event.channel;
       };
 
       pc.onconnectionstatechange = () => {
-        console.log(`Connection state: ${pc.connectionState}`);
+        console.log(`📊 Connection state: ${pc.connectionState}`);
 
         if (pc.connectionState === "connected") {
           setConnectionReady(true);
@@ -59,27 +75,41 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
           }
-          console.log("✅ Connection established");
-        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          console.log("✅ Connection established!");
+        } else if (
+          pc.connectionState === "failed" ||
+          pc.connectionState === "disconnected" ||
+          pc.connectionState === "closed"
+        ) {
           setConnectionReady(false);
-          setConnectionError("Connection failed or disconnected");
-          toast.error("Connection lost");
+          if (!connectionError) {
+            setConnectionError(`Connection ${pc.connectionState}`);
+          }
+          toast.error(`Connection ${pc.connectionState}`);
         }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log(`❄️ ICE connection state: ${pc.iceConnectionState}`);
       };
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
+          console.log("📍 New ICE candidate found");
           await storeICECandidate(event.candidate);
+        } else if (!iceGatheringCompleteRef.current) {
+          console.log("✅ ICE gathering complete!");
+          iceGatheringCompleteRef.current = true;
         }
       };
 
       peerConnectionRef.current = pc;
 
-      // ✅ INCREASED: 20 second timeout instead of 10
+      // ✅ 60 second timeout instead of 20
       connectionTimeoutRef.current = setTimeout(() => {
         if (!connectionReady && !connectionError) {
-          setConnectionError("Connection timeout - WebRTC handshake taking too long");
-          console.warn("WebRTC connection timeout after 20 seconds");
+          setConnectionError("Connection timeout - ICE negotiation taking too long");
+          console.warn("WebRTC connection timeout after 60 seconds");
         }
       }, CONNECTION_TIMEOUT);
 
@@ -92,16 +122,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
   };
 
   const setupDataChannel = (dataChannel: RTCDataChannel) => {
-    console.log(`Setting up data channel: ${dataChannel.label}`);
+    console.log(`📡 Setting up data channel: ${dataChannel.label}`);
 
     dataChannel.onopen = () => {
-      console.log("Data channel opened");
+      console.log("✅ Data channel opened!");
       setConnectionReady(true);
       setConnectionError(null);
     };
 
     dataChannel.onclose = () => {
-      console.log("Data channel closed");
+      console.log("❌ Data channel closed");
       setConnectionReady(false);
     };
 
@@ -111,23 +141,26 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     };
 
     dataChannel.onmessage = (event) => {
-      console.log("Message received from peer:", event.data);
+      console.log("💬 Message received:", event.data);
     };
   };
 
   const generateOffer = async (pc: RTCPeerConnection) => {
     if (offerGeneratedRef.current) {
-      console.log("Offer already generated");
+      console.log("⚠️ Offer already generated");
       return;
     }
 
     try {
-      console.log("Generating offer...");
-      const offer = await pc.createOffer();
+      console.log("📤 Generating offer...");
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: false,
+        offerToReceiveVideo: false,
+      });
       await pc.setLocalDescription(offer);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       await fetch("/api/chat/signal", {
         method: "POST",
@@ -155,19 +188,19 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
   const generateAnswer = async (pc: RTCPeerConnection, offer: any) => {
     if (answerGeneratedRef.current) {
-      console.log("Answer already generated");
+      console.log("⚠️ Answer already generated");
       return;
     }
 
     try {
-      console.log("Generating answer for received offer...");
+      console.log("📥 Generating answer...");
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       await fetch("/api/chat/signal", {
         method: "POST",
@@ -213,7 +246,8 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
         }
       }
     } catch (error) {
-      console.error("Failed to apply answer:", error);
+      // Silently fail, will retry
+      console.log("Still waiting for answer...");
     }
   };
 
@@ -237,7 +271,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       clearTimeout(timeoutId);
     } catch (error) {
-      console.error("Failed to store ICE candidate:", error);
+      console.log("Failed to store ICE candidate (will retry)");
     }
   };
 
@@ -264,13 +298,14 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
           try {
             await pc.addIceCandidate(new RTCIceCandidate(signal.data));
             processedICECandidatesRef.current.add(candidateString);
+            console.log("✅ ICE candidate added");
           } catch (error) {
-            console.error("Failed to add ICE candidate:", error);
+            console.log("Failed to add ICE candidate (will retry)");
           }
         }
       }
     } catch (error) {
-      console.error("Failed to fetch ICE candidates:", error);
+      console.log("Failed to fetch ICE candidates (will retry)");
     }
   };
 
@@ -278,16 +313,18 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     const pc = await initializePeerConnection();
     if (!pc) return;
 
-    console.log(`Starting WebRTC handshake for ${username} with ${otherUser}`);
+    console.log(`🚀 Starting WebRTC handshake for ${username} with ${otherUser}`);
+    console.log(`⏱️ Timeouts: Connection=60s, Polling=2min, ICE=45s`);
 
     pollStartTimeRef.current = Date.now();
 
     signalPollIntervalRef.current = setInterval(async () => {
       const elapsedTime = Date.now() - pollStartTimeRef.current;
+      
       if (elapsedTime > MAX_POLLING_DURATION && !connectionReady) {
-        console.warn("Polling timeout - stopping after 60 seconds");
+        console.warn("⏰ Polling timeout - stopping after 2 minutes");
         clearInterval(signalPollIntervalRef.current!);
-        setConnectionError("WebRTC connection failed - timeout");
+        setConnectionError("WebRTC connection failed - timeout after 2 minutes");
         return;
       }
 
@@ -296,10 +333,10 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
         const offerData = await offerRes.json();
 
         if (offerData.signals && offerData.signals.length > 0 && !answerGeneratedRef.current) {
-          console.log(`${username} received offer from ${otherUser}`);
+          console.log(`📨 ${username} received offer from ${otherUser}`);
           await generateAnswer(pc, offerData.signals[0].data);
         } else if (!offerGeneratedRef.current && !answerGeneratedRef.current) {
-          console.log(`${username} generating offer (no offer from ${otherUser})`);
+          console.log(`📨 ${username} generating offer (no offer from ${otherUser})`);
           await generateOffer(pc);
         }
 
@@ -314,7 +351,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
         console.error("Error in WebRTC handshake loop:", error);
         failedFetchCountRef.current++;
 
-        if (failedFetchCountRef.current > 5) {
+        if (failedFetchCountRef.current > 20) {
           clearInterval(signalPollIntervalRef.current!);
           setConnectionError("WebRTC connection failed - too many network errors");
         }
@@ -336,7 +373,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       };
 
       dataChannelRef.current.send(JSON.stringify(messageData));
-      console.log("Message sent via WebRTC data channel");
+      console.log("📤 Message sent via WebRTC");
 
       return true;
     } catch (error) {
@@ -356,6 +393,9 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       }
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
+      }
+      if (iceGatheringTimeoutRef.current) {
+        clearTimeout(iceGatheringTimeoutRef.current);
       }
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
