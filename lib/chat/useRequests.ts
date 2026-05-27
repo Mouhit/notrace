@@ -73,18 +73,40 @@ export function useRequests(username: string): UseRequestsReturn {
     }
   };
 
+  // ✅ IMPROVED: Better acceptance checking
   const checkAcceptanceStatus = async () => {
-    if (outgoingRequests.length === 0) return;
+    if (outgoingRequests.length === 0) {
+      console.log("No outgoing requests to check");
+      return;
+    }
 
     try {
+      console.log(`🔵 Checking acceptance status for ${outgoingRequests.length} requests`);
+      
       for (const req of outgoingRequests) {
-        const res = await fetch(`/api/chat/request/${req.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === "accepted") {
+        console.log(`  Checking: ${req.requester} → ${req.recipient}`);
+        
+        // ✅ FIX: Check active chats directly
+        const activeRes = await fetch(`/api/chat/active?username=${username}`);
+        const activeData = await activeRes.json();
+        
+        console.log("Active chats response:", activeData);
+        
+        if (activeData.activeChat) {
+          const chat = activeData.activeChat;
+          
+          // Check if this is the chat we're looking for
+          // Active chat has user1 and user2
+          const isMatchingChat = 
+            (chat.user1 === username && chat.user2 === req.recipient) ||
+            (chat.user1 === req.recipient && chat.user2 === username);
+          
+          if (isMatchingChat && chat.room_id) {
+            console.log(`✅ FOUND ACTIVE CHAT! Room: ${chat.room_id}`);
             setOutgoingRequestAccepted(true);
-            setAcceptedRoomId(data.roomId);
+            setAcceptedRoomId(chat.room_id);
             setAcceptedWith(req.recipient);
+            return;
           }
         }
       }
@@ -142,13 +164,12 @@ export function useRequests(username: string): UseRequestsReturn {
     }
   };
 
-  // ✅ FIXED: Accept request with proper logging
   const acceptRequest = async (requestId: string, requester: string): Promise<string | null> => {
     try {
       console.log(`🔵 Accepting request:`, { requestId, requester, recipient: username });
 
       const payload = { requestId, requester, recipient: username };
-      console.log(`📤 Sending payload to /api/chat/request/accept:`, payload);
+      console.log(`📤 Sending payload:`, payload);
 
       const res = await fetch("/api/chat/request/accept", {
         method: "POST",
@@ -162,19 +183,18 @@ export function useRequests(username: string): UseRequestsReturn {
       console.log(`📥 Response data:`, data);
 
       if (res.ok) {
-        console.log(`✅ Accept successful! Room ID: ${data.roomId}`);
+        console.log(`✅ Accept successful!`);
         toast.success(`Connected with @${requester}!`);
         fetchIncomingRequests();
         
-        if (data.activeChat && data.activeChat.room_id) {
-          setAcceptedRoomId(data.activeChat.room_id);
-        } else if (data.roomId) {
-          setAcceptedRoomId(data.roomId);
+        const roomId = data.roomId || data.activeChat?.room_id;
+        if (roomId) {
+          setAcceptedRoomId(roomId);
         }
         
         setAcceptedWith(requester);
         setError(null);
-        return data.roomId || data.activeChat?.room_id || null;
+        return roomId || null;
       } else {
         console.error(`❌ Accept failed:`, data);
         setError(data.error || "Failed to accept request");
@@ -253,9 +273,10 @@ export function useRequests(username: string): UseRequestsReturn {
     checkAcceptanceStatus();
 
     const interval = setInterval(() => {
+      console.log("🔄 Polling for requests...");
       fetchIncomingRequests();
       fetchOutgoingRequests();
-      checkAcceptanceStatus();
+      checkAcceptanceStatus(); // ✅ Check acceptance every 3 seconds
     }, 3000);
 
     return () => clearInterval(interval);
