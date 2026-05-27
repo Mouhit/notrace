@@ -67,12 +67,15 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     }
   }, [outgoingRequestAccepted, acceptedRoomId, acceptedWith]);
 
-  // Handle accepting incoming request
+  // ✅ FIXED: Handle accepting incoming request
   const handleAcceptRequest = async (requestId: string, requester: string) => {
     try {
+      console.log(`Accepting request from ${requester}...`);
       const roomId = await acceptRequest(requestId, requester);
 
       if (roomId) {
+        console.log(`✅ Request accepted! Room ID: ${roomId}`);
+        
         setActiveChat({
           roomId,
           otherUser: requester,
@@ -81,10 +84,13 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
 
         setView("chat");
         toast.success(`Connected with @${requester}!`);
+      } else {
+        console.error("Accept returned null roomId");
+        toast.error("Failed to create chat session");
       }
     } catch (error) {
+      console.error("Accept error:", error);
       toast.error("Failed to accept request");
-      console.error(error);
     }
   };
 
@@ -109,9 +115,8 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     setView("chat");
   };
 
-  // ✅ NEW: Handle request sent from search
+  // Handle request sent from search
   const handleRequestSent = (recipient: string) => {
-    // Switch to outgoing tab to show sent request
     setActiveTab("outgoing");
   };
 
@@ -168,7 +173,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
           </div>
         </div>
 
-        {/* ✅ NEW: User Search Component */}
+        {/* User Search Component */}
         <UserSearch
           username={username}
           onRequestSent={handleRequestSent}
