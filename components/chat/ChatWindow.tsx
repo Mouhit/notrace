@@ -7,6 +7,7 @@ import ChatAuth from "./ChatAuth";
 import IncomingRequests from "./IncomingRequests";
 import OutgoingRequests from "./OutgoingRequests";
 import ActiveChat from "./ActiveChat";
+import UserSearch from "./UserSearch";
 
 const T = {
   bg: "#050505",
@@ -43,6 +44,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     acceptRequest,
     rejectRequest,
     cancelRequest,
+    sendRequest,
     outgoingRequestAccepted,
     acceptedRoomId,
     acceptedWith,
@@ -107,6 +109,12 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     setView("chat");
   };
 
+  // ✅ NEW: Handle request sent from search
+  const handleRequestSent = (recipient: string) => {
+    // Switch to outgoing tab to show sent request
+    setActiveTab("outgoing");
+  };
+
   // Close active chat and return to requests
   const handleCloseChat = () => {
     setActiveChat(null);
@@ -159,6 +167,14 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
             </button>
           </div>
         </div>
+
+        {/* ✅ NEW: User Search Component */}
+        <UserSearch
+          username={username}
+          onRequestSent={handleRequestSent}
+          outgoingRequests={outgoingRequests}
+          sendRequest={sendRequest}
+        />
 
         {/* Tabs */}
         <div
@@ -216,11 +232,15 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
         {/* Content */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
           {activeTab === "incoming" ? (
-            <IncomingRequests requests={incomingRequests} onAccept={handleAcceptRequest} onReject={handleRejectRequest} />
+            <IncomingRequests
+              requests={incomingRequests}
+              onAccept={handleAcceptRequest}
+              onReject={handleRejectRequest}
+            />
           ) : (
             <OutgoingRequests
               requests={outgoingRequests}
-              username={username} // ✅ FIX: Add username prop
+              username={username}
               onCancel={handleCancelRequest}
               onAccepted={handleOutgoingRequestAccepted}
               outgoingRequestAccepted={outgoingRequestAccepted}
