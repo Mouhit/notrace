@@ -1,18 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 
-/**
- * ✅ NEW FILE: app/api/chat/request/outgoing/route.ts
- * 
- * GET /api/chat/request/outgoing?username=sumit
- * Get all OUTGOING requests SENT BY a user
- * 
- * Used by useRequests hook to:
- * - Track requests the user has sent
- * - Detect when sent request was accepted
- * - Display "Sent Requests" list
- */
-
 export async function GET(req: NextRequest) {
   try {
     const username = req.nextUrl.searchParams.get("username");
@@ -23,11 +11,12 @@ export async function GET(req: NextRequest) {
 
     const supabase = createServerClient();
 
-    // ✅ Get all requests SENT BY this user (where user is REQUESTER)
+    // ✅ FIX: ONLY fetch PENDING requests (not cancelled/rejected)
     const { data: requests, error } = await supabase
       .from("chat_requests")
       .select("id, requester, recipient, status, created_at")
-      .eq("requester", username)  // ✅ User who SENT the request
+      .eq("requester", username)
+      .eq("status", "pending")  // ← FIX: Only pending!
       .order("created_at", { ascending: false });
 
     if (error) throw error;
