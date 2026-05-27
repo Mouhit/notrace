@@ -66,10 +66,10 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     }
   }, [outgoingRequestAccepted, acceptedRoomId, acceptedWith]);
 
-  // ✅ NEW: Poll for active chats directly (not just request acceptance)
+  // ✅ Poll for active chats (but SKIP if user manually closed)
   useEffect(() => {
-    if (view === "chat" || outgoingRequestAccepted) {
-      return; // Already in chat or transitioning
+    if (view === "chat") {
+      return; // Already in chat, don't poll
     }
 
     const checkActiveChats = async () => {
@@ -85,7 +85,7 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
           setActiveChat({
             roomId: data.activeChat.room_id,
             otherUser: data.activeChat.otherUser,
-            initiator: "requester", // Assume requester for now
+            initiator: "requester",
           });
 
           setView("chat");
@@ -96,14 +96,12 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
       }
     };
 
-    // Check immediately
     checkActiveChats();
 
-    // Then check every 2 seconds
     const interval = setInterval(checkActiveChats, 2000);
 
     return () => clearInterval(interval);
-  }, [username, view, outgoingRequestAccepted]);
+  }, [username, view]);
 
   const handleAcceptRequest = async (requestId: string, requester: string) => {
     try {
@@ -153,7 +151,31 @@ export default function ChatWindow({ username, privateKey, onLogout }: ChatWindo
     setActiveTab("outgoing");
   };
 
-  const handleCloseChat = () => {
+  // ✅ FIXED: Delete active chat from database when closing
+  const handleCloseChat = async () => {
+    if (activeChat) {
+      try {
+        console.log(`Deleting active chat with ${activeChat.otherUser}...`);
+        
+        const res = await fetch("/api/chat/end", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roomId: activeChat.roomId,
+            username: username,
+          }),
+        });
+
+        if (res.ok) {
+          console.log("✅ Active chat deleted from database");
+        } else {
+          console.warn("Failed to delete active chat from database");
+        }
+      } catch (err) {
+        console.error("Error deleting active chat:", err);
+      }
+    }
+
     setActiveChat(null);
     setView("requests");
     setActiveTab("incoming");
