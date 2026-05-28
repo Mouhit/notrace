@@ -9,11 +9,9 @@ interface UseWebRTCChatReturn {
   remoteStream: MediaStream | null;
 }
 
-// ✅ MASSIVELY INCREASED TIMEOUTS
-const MAX_POLLING_DURATION = 120000; // 2 MINUTES (was 60s)
-const POLLING_INTERVAL = 500; // 500ms (was 1s) - faster polling
-const CONNECTION_TIMEOUT = 60000; // 60 SECONDS (was 20s)
-const ICE_GATHERING_TIMEOUT = 45000; // 45 seconds for ICE candidates
+const MAX_POLLING_DURATION = 120000;
+const POLLING_INTERVAL = 500;
+const CONNECTION_TIMEOUT = 60000;
 
 export function useWebRTCChat(roomId: string, username: string, otherUser: string): UseWebRTCChatReturn {
   const [connectionReady, setConnectionReady] = useState(false);
@@ -24,33 +22,24 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const signalPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const iceGatheringTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const offerGeneratedRef = useRef(false);
   const answerGeneratedRef = useRef(false);
   const processedICECandidatesRef = useRef<Set<string>>(new Set());
   const pollStartTimeRef = useRef<number>(0);
   const failedFetchCountRef = useRef<number>(0);
-  const iceGatheringCompleteRef = useRef(false);
 
   const initializePeerConnection = async () => {
     try {
       const pc = new RTCPeerConnection({
         iceServers: [
-          // ✅ Google STUN servers
           { urls: ["stun:stun.l.google.com:19302"] },
           { urls: ["stun:stun1.l.google.com:19302"] },
           { urls: ["stun:stun2.l.google.com:19302"] },
           { urls: ["stun:stun3.l.google.com:19302"] },
           { urls: ["stun:stun4.l.google.com:19302"] },
-          
-          // ✅ Temasys STUN servers
           { urls: ["stun:stun.l.temasys.sg:3478"] },
           { urls: ["stun:stun2.l.temasys.sg:3478"] },
-          
-          // ✅ Twilio STUN servers
           { urls: ["stun:stun.twiliocdn.com:3478"] },
-          
-          // ✅ Mozilla STUN server
           { urls: ["stun:stun.services.mozilla.com:3478"] },
         ],
         iceCandidatePoolSize: 10,
@@ -85,27 +74,18 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
           if (!connectionError) {
             setConnectionError(`Connection ${pc.connectionState}`);
           }
-          toast.error(`Connection ${pc.connectionState}`);
         }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log(`❄️ ICE connection state: ${pc.iceConnectionState}`);
       };
 
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           console.log("📍 New ICE candidate found");
           await storeICECandidate(event.candidate);
-        } else if (!iceGatheringCompleteRef.current) {
-          console.log("✅ ICE gathering complete!");
-          iceGatheringCompleteRef.current = true;
         }
       };
 
       peerConnectionRef.current = pc;
 
-      // ✅ 60 second timeout instead of 20
       connectionTimeoutRef.current = setTimeout(() => {
         if (!connectionReady && !connectionError) {
           setConnectionError("Connection timeout - ICE negotiation taking too long");
@@ -162,15 +142,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+      // ✅ FIX: Use correct parameter names (roomId, sender, receiver, payload)
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          room_id: roomId,
+          roomId: roomId,
           type: "offer",
-          data: offer,
-          from: username,
-          to: otherUser,
+          payload: offer,
+          sender: username,
+          receiver: otherUser,
         }),
         signal: controller.signal,
       });
@@ -202,15 +183,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+      // ✅ FIX: Use correct parameter names
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          room_id: roomId,
+          roomId: roomId,
           type: "answer",
-          data: answer,
-          from: username,
-          to: otherUser,
+          payload: answer,
+          sender: username,
+          receiver: otherUser,
         }),
         signal: controller.signal,
       });
@@ -231,7 +213,8 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const res = await fetch(`/api/chat/signal?room_id=${roomId}&type=answer&from=${otherUser}`, {
+      // ✅ FIX: Use correct parameter names (roomId, receiver)
+      const res = await fetch(`/api/chat/signal?roomId=${roomId}&receiver=${username}&type=answer`, {
         signal: controller.signal,
       });
 
@@ -239,14 +222,13 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const data = await res.json();
 
       if (data.signals && data.signals.length > 0) {
-        const answerData = data.signals[0].data;
+        const answerData = data.signals[0].payload;
         if (pc.remoteDescription === null) {
           await pc.setRemoteDescription(new RTCSessionDescription(answerData));
           console.log("✅ Answer applied");
         }
       }
     } catch (error) {
-      // Silently fail, will retry
       console.log("Still waiting for answer...");
     }
   };
@@ -256,15 +238,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+      // ✅ FIX: Use correct parameter names
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          room_id: roomId,
+          roomId: roomId,
           type: "ice-candidate",
-          data: candidate,
-          from: username,
-          to: otherUser,
+          payload: candidate,
+          sender: username,
+          receiver: otherUser,
         }),
         signal: controller.signal,
       });
@@ -280,7 +263,8 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const res = await fetch(`/api/chat/signal?room_id=${roomId}&type=ice-candidate&from=${otherUser}`, {
+      // ✅ FIX: Use correct parameter names (roomId, receiver)
+      const res = await fetch(`/api/chat/signal?roomId=${roomId}&receiver=${username}&type=ice-candidate`, {
         signal: controller.signal,
       });
 
@@ -289,14 +273,14 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       if (data.signals) {
         for (const signal of data.signals) {
-          const candidateString = JSON.stringify(signal.data);
+          const candidateString = JSON.stringify(signal.payload);
 
           if (processedICECandidatesRef.current.has(candidateString)) {
             continue;
           }
 
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+            await pc.addIceCandidate(new RTCIceCandidate(signal.payload));
             processedICECandidatesRef.current.add(candidateString);
             console.log("✅ ICE candidate added");
           } catch (error) {
@@ -314,29 +298,28 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     if (!pc) return;
 
     console.log(`🚀 Starting WebRTC handshake for ${username} with ${otherUser}`);
-    console.log(`⏱️ Timeouts: Connection=60s, Polling=2min, ICE=45s`);
 
     pollStartTimeRef.current = Date.now();
 
     signalPollIntervalRef.current = setInterval(async () => {
       const elapsedTime = Date.now() - pollStartTimeRef.current;
-      
+
       if (elapsedTime > MAX_POLLING_DURATION && !connectionReady) {
-        console.warn("⏰ Polling timeout - stopping after 2 minutes");
+        console.warn("⏰ Polling timeout");
         clearInterval(signalPollIntervalRef.current!);
         setConnectionError("WebRTC connection failed - timeout after 2 minutes");
         return;
       }
 
       try {
-        const offerRes = await fetch(`/api/chat/signal?room_id=${roomId}&type=offer&from=${otherUser}`);
+        const offerRes = await fetch(`/api/chat/signal?roomId=${roomId}&receiver=${username}&type=offer`);
         const offerData = await offerRes.json();
 
         if (offerData.signals && offerData.signals.length > 0 && !answerGeneratedRef.current) {
           console.log(`📨 ${username} received offer from ${otherUser}`);
-          await generateAnswer(pc, offerData.signals[0].data);
+          await generateAnswer(pc, offerData.signals[0].payload);
         } else if (!offerGeneratedRef.current && !answerGeneratedRef.current) {
-          console.log(`📨 ${username} generating offer (no offer from ${otherUser})`);
+          console.log(`📨 ${username} generating offer`);
           await generateOffer(pc);
         }
 
@@ -393,9 +376,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       }
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
-      }
-      if (iceGatheringTimeoutRef.current) {
-        clearTimeout(iceGatheringTimeoutRef.current);
       }
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
