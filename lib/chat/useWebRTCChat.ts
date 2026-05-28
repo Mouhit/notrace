@@ -27,6 +27,8 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
   const processedICECandidatesRef = useRef<Set<string>>(new Set());
   const pollStartTimeRef = useRef<number>(0);
   const failedFetchCountRef = useRef<number>(0);
+  const messagesReceivedRef = useRef<number>(0); // ✅ Track if messages are flowing
+  const lastMessageTimeRef = useRef<number>(0); // ✅ Track last message time
 
   const initializePeerConnection = async () => {
     try {
@@ -86,10 +88,24 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       peerConnectionRef.current = pc;
 
+      // ✅ SMART TIMER: Don't just timeout, check if messages are flowing
       connectionTimeoutRef.current = setTimeout(() => {
+        // Before showing error, check if messages are actually working
+        if (messagesReceivedRef.current > 0 && lastMessageTimeRef.current > 0) {
+          const timeSinceLastMessage = Date.now() - lastMessageTimeRef.current;
+          
+          // If messages received recently (within last 10 seconds), don't show error
+          if (timeSinceLastMessage < 10000) {
+            console.log("✅ Messages are flowing! Not showing error even though connection not fully established");
+            // Keep the connection going, don't show error
+            return;
+          }
+        }
+
+        // Only show error if messages are NOT flowing
         if (!connectionReady && !connectionError) {
-          setConnectionError("Connection timeout - ICE negotiation taking too long");
-          console.warn("WebRTC connection timeout after 60 seconds");
+          setConnectionError("Connection timeout - messages not flowing");
+          console.warn("WebRTC connection timeout - no messages received");
         }
       }, CONNECTION_TIMEOUT);
 
@@ -122,6 +138,14 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
     dataChannel.onmessage = (event) => {
       console.log("💬 Message received:", event.data);
+      // ✅ SMART TIMER: Track that we received a message
+      messagesReceivedRef.current++;
+      lastMessageTimeRef.current = Date.now();
+      
+      // ✅ If we're receiving messages, clear any error
+      if (connectionError && connectionError.includes("timeout")) {
+        setConnectionError(null);
+      }
     };
   };
 
@@ -142,7 +166,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      // ✅ FIX: Use correct parameter names (roomId, sender, receiver, payload)
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,7 +206,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      // ✅ FIX: Use correct parameter names
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -213,7 +235,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      // ✅ FIX: Use correct parameter names (roomId, receiver)
       const res = await fetch(`/api/chat/signal?roomId=${roomId}&receiver=${username}&type=answer`, {
         signal: controller.signal,
       });
@@ -238,7 +259,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      // ✅ FIX: Use correct parameter names
       await fetch("/api/chat/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -263,7 +283,6 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      // ✅ FIX: Use correct parameter names (roomId, receiver)
       const res = await fetch(`/api/chat/signal?roomId=${roomId}&receiver=${username}&type=ice-candidate`, {
         signal: controller.signal,
       });
@@ -307,7 +326,11 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
       if (elapsedTime > MAX_POLLING_DURATION && !connectionReady) {
         console.warn("⏰ Polling timeout");
         clearInterval(signalPollIntervalRef.current!);
-        setConnectionError("WebRTC connection failed - timeout after 2 minutes");
+        
+        // ✅ SMART: Only show error if messages aren't flowing
+        if (messagesReceivedRef.current === 0) {
+          setConnectionError("WebRTC connection failed - no response from peer");
+        }
         return;
       }
 
@@ -357,6 +380,9 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       dataChannelRef.current.send(JSON.stringify(messageData));
       console.log("📤 Message sent via WebRTC");
+      
+      // ✅ SMART: Track that we sent a message (connection is working)
+      lastMessageTimeRef.current = Date.now();
 
       return true;
     } catch (error) {
