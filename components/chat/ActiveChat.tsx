@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Send, Loader2, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { MessageCircle, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { useWebRTCChat } from "@/lib/chat/useWebRTCChat";
 
@@ -16,10 +16,10 @@ const T = {
 
 interface Message {
   id: string;
+  text: string;
   sender: string;
-  content: string;
   timestamp: number;
-  side: "sent" | "received";
+  read: boolean; // ✅ FEATURE 3: Read/unread
 }
 
 interface ActiveChatProps {
@@ -31,288 +31,386 @@ interface ActiveChatProps {
 
 export default function ActiveChat({ roomId, username, otherUser, onClose }: ActiveChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [sending, setSending] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "error">("connecting");
+  const [messageInput, setMessageInput] = useState("");
+  const [notificationMuted, setNotificationMuted] = useState(false); // ✅ FEATURE 4: Mute/unmute
+  const [otherUserOnlineStatus, setOtherUserOnlineStatus] = useState<"online" | "idle" | "offline">("offline"); // ✅ FEATURE 2: Online status
 
-  const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(roomId, username, otherUser);
+  const { sendMessage, connectionError, connectionReady } = useWebRTCChat(roomId, username, otherUser);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageVisibilityRef = useRef<Set<string>>(new Set()); // ✅ Track visible messages for auto-read
 
-  // ✅ FIX: Update connection status
+  // ✅ FEATURE 1: Auto-scroll to top (reverse chronological)
+  const scrollToTop = () => {
+    setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 0);
+  };
+
+  // ✅ FEATURE 3: Auto-mark as read when message is visible
   useEffect(() => {
-    if (connectionError) {
-      setConnectionStatus("error");
-      console.error("Connection error:", connectionError);
-    } else if (connectionReady) {
-      setConnectionStatus("connected");
-      console.log("✅ Connection ready");
-    } else {
-      setConnectionStatus("connecting");
-    }
-  }, [connectionReady, connectionError]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const messageId = entry.target.getAttribute("data-message-id");
+          if (!messageId) return;
 
-  // ✅ FIX: Listen for incoming messages from peer connection
+          if (entry.isIntersecting) {
+            messageVisibilityRef.current.add(messageId);
+
+            // Mark as read after 1 second of being visible
+            setTimeout(() => {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === messageId ? { ...msg, read: true } : msg
+                )
+              );
+            }, 1000);
+          } else {
+            messageVisibilityRef.current.delete(messageId);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    document.querySelectorAll("[data-message-id]").forEach((el) => {
+      observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [messages]);
+
+  // ✅ FEATURE 4: Listen for messages via WebRTC
   useEffect(() => {
-    if (!peerConnection) return;
-
-    const handleDataChannelMessage = (event: MessageEvent) => {
+    const handleMessage = (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data);
-        console.log("Received message:", data);
-
-        // ✅ Add received message
+        const messageData = JSON.parse(event.data);
         const newMessage: Message = {
-          id: `msg-${Date.now()}-${Math.random()}`,
-          sender: data.sender,
-          content: data.text,
-          timestamp: data.timestamp,
-          side: "received",
+          id: `${messageData.sender}-${messageData.timestamp}`,
+          text: messageData.text,
+          sender: messageData.sender,
+          timestamp: messageData.timestamp,
+          read: false, // Received messages start as unread
         };
 
-        setMessages((prev) => [...prev, newMessage]);
+        setMessages((prev) => [newMessage, ...prev]); // ✅ Add to top (reverse order)
+        scrollToTop();
+
+        // ✅ FEATURE 4: Play notification sound if tab not focused and not muted
+        if (!document.hasFocus() && !notificationMuted) {
+          playNotificationSound();
+        }
       } catch (error) {
-        console.error("Failed to parse message:", error);
+        console.error("Error parsing message:", error);
       }
     };
 
-    // ✅ FIX: Properly handle data channel events without type issues
-    const handleDataChannel = (event: RTCDataChannelEvent) => {
-      console.log("Data channel received:", event.channel.label);
-      event.channel.onmessage = handleDataChannelMessage;
-    };
+    // This would be called from useWebRTCChat when message is received
+    window.addEventListener("p2p-message", handleMessage as EventListener);
+    return () => window.removeEventListener("p2p-message", handleMessage as EventListener);
+  }, [notificationMuted]);
 
-    peerConnection.ondatachannel = handleDataChannel;
+  // ✅ FEATURE 2: Detect other user's online status (based on message timestamps)
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      const otherUserMessages = messages.filter((msg) => msg.sender === otherUser);
+      if (otherUserMessages.length === 0) {
+        setOtherUserOnlineStatus("offline");
+        return;
+      }
 
-    return () => {
-      peerConnection.ondatachannel = null;
-    };
-  }, [peerConnection]);
+      const lastMessageTime = otherUserMessages[0].timestamp;
+      const timeSinceLastMessage = Date.now() - lastMessageTime;
 
-  // ✅ FIX: Send message with validation
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!inputValue.trim()) return;
-
-    if (!connectionReady) {
-      toast.error("Waiting for connection... Please wait");
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      const success = await sendMessage(inputValue);
-
-      if (success) {
-        // ✅ Add to local UI (optimistic update)
-        const newMessage: Message = {
-          id: `msg-${Date.now()}`,
-          sender: username,
-          content: inputValue,
-          timestamp: Date.now(),
-          side: "sent",
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-        setInputValue("");
-        console.log("Message sent successfully");
+      if (timeSinceLastMessage < 2 * 60 * 1000) {
+        // Less than 2 minutes
+        setOtherUserOnlineStatus("online");
+      } else if (timeSinceLastMessage < 10 * 60 * 1000) {
+        // Less than 10 minutes
+        setOtherUserOnlineStatus("idle");
       } else {
-        toast.error("Failed to send message - connection not ready");
+        setOtherUserOnlineStatus("offline");
       }
+    };
+
+    const interval = setInterval(updateOnlineStatus, 10000); // Update every 10 seconds
+    updateOnlineStatus(); // Initial check
+
+    return () => clearInterval(interval);
+  }, [messages, otherUser]);
+
+  // ✅ FEATURE 4: Play notification sound
+  const playNotificationSound = () => {
+    try {
+      // Use Web Audio API to play a beep sound
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 800; // 800 Hz beep
+      oscillator.type = "sine";
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
     } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Error sending message");
-    } finally {
-      setSending(false);
+      console.log("Could not play notification sound");
     }
   };
 
+  // Send message handler
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return;
+
+    const newMessage: Message = {
+      id: `${username}-${Date.now()}`,
+      text: messageInput,
+      sender: username,
+      timestamp: Date.now(),
+      read: true, // Own messages are marked as read
+    };
+
+    setMessages((prev) => [newMessage, ...prev]); // ✅ Add to top
+    scrollToTop();
+
+    const success = await sendMessage(messageInput);
+    if (!success) {
+      toast.error("Failed to send message");
+    }
+
+    setMessageInput("");
+  };
+
+  // ✅ FEATURE 2: Online status indicator colors
+  const getStatusColor = () => {
+    if (otherUserOnlineStatus === "online") return "#9fff00"; // Green
+    if (otherUserOnlineStatus === "idle") return "#ffaa00"; // Yellow/Orange
+    return "#666"; // Grey
+  };
+
+  const getStatusText = () => {
+    if (otherUserOnlineStatus === "online") return "Online";
+    if (otherUserOnlineStatus === "idle") return "Idle";
+    return "Offline";
+  };
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        background: T.bg,
-        borderRadius: 16,
-        overflow: "hidden",
-        border: `1px solid ${T.border}`,
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", fontFamily: T.font }}>
       {/* Header */}
       <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           padding: "16px 20px",
           borderBottom: `1px solid ${T.border}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          marginBottom: 16,
         }}
       >
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>@{otherUser}</h3>
-
-          {/* ✅ FIX: Better connection status indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background:
-                  connectionStatus === "connected"
-                    ? "#4ade80"
-                    : connectionStatus === "error"
-                      ? "#ff4444"
-                      : "#fbbf24",
-                animation: connectionStatus === "connecting" ? "pulse 1.5s infinite" : "none",
-              }}
-            />
-            <span style={{ fontSize: 11, color: T.muted }}>
-              {connectionStatus === "connected" && "✅ Connected"}
-              {connectionStatus === "connecting" && "⏳ Connecting..."}
-              {connectionStatus === "error" && "❌ Connection Error"}
-            </span>
-          </div>
-
-          {/* ✅ FIX: Show error message if exists */}
-          {connectionError && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-              <AlertCircle size={12} style={{ color: "#ff4444" }} />
-              <span style={{ fontSize: 10, color: "#ff4444" }}>{connectionError}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <MessageCircle size={24} style={{ color: T.accent }} />
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16, color: T.text }}>@{otherUser}</h2>
+            {/* ✅ FEATURE 2: Online status display */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: getStatusColor(),
+                }}
+              />
+              <span style={{ fontSize: 11, color: T.muted }}>{getStatusText()}</span>
             </div>
-          )}
+          </div>
         </div>
 
-        <button
-          onClick={onClose}
-          style={{
-            background: "transparent",
-            border: `1px solid ${T.border}`,
-            color: T.text,
-            padding: "6px 12px",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontSize: 12,
-            fontFamily: T.font,
-            fontWeight: 600,
-          }}
-        >
-          Close
-        </button>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {/* ✅ FEATURE 4: Mute/Unmute button */}
+          <button
+            onClick={() => setNotificationMuted(!notificationMuted)}
+            style={{
+              background: "transparent",
+              border: `1px solid ${T.border}`,
+              color: notificationMuted ? "#ff6666" : T.accent,
+              padding: "8px 12px",
+              borderRadius: 6,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontFamily: T.font,
+              fontWeight: 700,
+            }}
+            title={notificationMuted ? "Notifications muted" : "Notifications enabled"}
+          >
+            {notificationMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: `1px solid ${T.border}`,
+              color: T.text,
+              padding: "8px 12px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 12,
+              fontFamily: T.font,
+              fontWeight: 700,
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Connection Status */}
+      {connectionError && (
+        <div
+          style={{
+            padding: "12px 20px",
+            background: "rgba(255, 100, 100, 0.1)",
+            borderBottom: "1px solid rgba(255, 100, 100, 0.3)",
+            color: "#ff6464",
+            fontSize: 12,
+            marginBottom: 16,
+          }}
+        >
+          ⚠️ {connectionError}
+        </div>
+      )}
+
+      {/* Messages Container - ✅ FEATURE 1: Reverse order (newest at top) */}
       <div
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px 20px",
+          padding: "0 20px",
           display: "flex",
-          flexDirection: "column",
-          gap: 12,
+          flexDirection: "column-reverse", // ✅ Reverse display
         }}
       >
-        {messages.length === 0 ? (
-          <div style={{ textAlign: "center", color: T.muted, fontSize: 12, margin: "auto" }}>
-            {connectionStatus === "connecting"
-              ? "Connecting... Messages will appear here"
-              : "No messages yet. Start the conversation!"}
-          </div>
-        ) : (
-          messages.map((msg) => (
+        <div>
+          {messages.length === 0 ? (
             <div
-              key={msg.id}
               style={{
-                display: "flex",
-                justifyContent: msg.side === "sent" ? "flex-end" : "flex-start",
+                textAlign: "center",
+                color: T.muted,
+                padding: "40px 20px",
+                fontSize: 14,
               }}
             >
+              No messages yet. Start the conversation!
+            </div>
+          ) : (
+            messages.map((msg) => (
               <div
+                key={msg.id}
+                data-message-id={msg.id}
                 style={{
-                  maxWidth: "70%",
-                  background: msg.side === "sent" ? T.accent : T.card,
-                  color: msg.side === "sent" ? "#000" : T.text,
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  wordBreak: "break-word",
-                  border: msg.side === "received" ? `1px solid ${T.border}` : "none",
+                  marginBottom: 12,
+                  display: "flex",
+                  justifyContent: msg.sender === username ? "flex-end" : "flex-start",
                 }}
               >
-                <p style={{ margin: 0, fontWeight: 600, fontSize: 11 }}>
-                  {msg.side === "sent" ? "You" : msg.sender}
-                </p>
-                <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.content}</p>
-                <span style={{ fontSize: 10, opacity: 0.7 }}>
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                </span>
+                <div
+                  style={{
+                    maxWidth: "60%",
+                    padding: "10px 14px",
+                    background: msg.sender === username ? T.accent : T.card,
+                    color: msg.sender === username ? "#000" : T.text,
+                    borderRadius: 8,
+                    wordWrap: "break-word",
+                  }}
+                >
+                  <div style={{ fontSize: 14, marginBottom: 4 }}>{msg.text}</div>
+                  {/* ✅ FEATURE 3: Read/Unread status next to timestamp */}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      opacity: 0.7,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                    {msg.sender === username && (
+                      <span>{msg.read ? "✓✓" : "✓"}</span> // ✅ Show read/unread
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* ✅ FIX: Input Area with better disabled state */}
-      <form
-        onSubmit={handleSendMessage}
+      {/* Input Area */}
+      <div
         style={{
           padding: "16px 20px",
           borderTop: `1px solid ${T.border}`,
           display: "flex",
-          gap: 8,
-          background: connectionStatus === "error" ? "rgba(255,68,68,0.05)" : T.bg,
+          gap: 12,
         }}
       >
         <input
           type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={
-            connectionStatus === "connecting"
-              ? "Connecting... Please wait"
-              : connectionStatus === "error"
-                ? "Connection error - refresh page"
-                : "Type a message..."
-          }
-          disabled={!connectionReady || sending || connectionStatus === "error"}
+          value={messageInput}
+          onChange={(e) => setMessageInput(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSendMessage();
+            }
+          }}
+          placeholder="Type a message..."
           style={{
             flex: 1,
             padding: "10px 12px",
-            background: "#0a0a0a",
-            border: `1px solid ${connectionStatus === "error" ? "#ff4444" : T.border}`,
-            borderRadius: 8,
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 6,
             color: T.text,
             fontFamily: T.font,
             fontSize: 13,
             outline: "none",
-            opacity: !connectionReady ? 0.5 : 1,
           }}
+          disabled={!connectionReady}
         />
-
         <button
-          type="submit"
-          disabled={!connectionReady || sending || !inputValue.trim() || connectionStatus === "error"}
+          onClick={handleSendMessage}
+          disabled={!messageInput.trim() || !connectionReady}
           style={{
-            padding: "10px 16px",
+            padding: "10px 20px",
             background: T.accent,
             color: "#000",
             border: "none",
-            borderRadius: 8,
-            cursor: "pointer",
+            borderRadius: 6,
+            cursor: connectionReady ? "pointer" : "not-allowed",
             fontFamily: T.font,
             fontWeight: 700,
             fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            opacity: !connectionReady || !inputValue.trim() ? 0.5 : 1,
+            opacity: connectionReady ? 1 : 0.5,
           }}
         >
-          {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
           Send
         </button>
-      </form>
+      </div>
     </div>
   );
 }
