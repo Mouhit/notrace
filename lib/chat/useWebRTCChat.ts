@@ -47,12 +47,16 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
         iceCandidatePoolSize: 10,
       });
 
+      // ✅ Create local datachannel
+      console.log("📡 Creating local data channel...");
       const dataChannel = pc.createDataChannel("chat", { ordered: true });
       setupDataChannel(dataChannel);
       dataChannelRef.current = dataChannel;
 
+      // ✅ Handle remote datachannel (when other peer creates one)
       pc.ondatachannel = (event) => {
-        console.log("🔵 Received data channel from remote peer");
+        console.log("🔵 Received remote data channel from peer");
+        // Setup the remote datachannel with same listeners
         setupDataChannel(event.channel);
         dataChannelRef.current = event.channel;
       };
@@ -88,6 +92,7 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
 
       peerConnectionRef.current = pc;
 
+      // ✅ Smart timeout: Only fail if no messages AND connection truly failed
       connectionTimeoutRef.current = setTimeout(() => {
         if (messagesReceivedRef.current > 0 && lastMessageTimeRef.current > 0) {
           const timeSinceLastMessage = Date.now() - lastMessageTimeRef.current;
@@ -112,8 +117,9 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     }
   };
 
+  // ✅ CRITICAL: Setup datachannel listeners for BOTH local and remote channels
   const setupDataChannel = (dataChannel: RTCDataChannel) => {
-    console.log(`📡 Setting up data channel: ${dataChannel.label}`);
+    console.log(`📡 Setting up data channel: ${dataChannel.label} (readyState: ${dataChannel.readyState})`);
 
     dataChannel.onopen = () => {
       console.log("✅ Data channel opened!");
@@ -132,19 +138,26 @@ export function useWebRTCChat(roomId: string, username: string, otherUser: strin
     };
 
     dataChannel.onmessage = (event) => {
-      console.log("💬 Message received:", event.data);
-      messagesReceivedRef.current++;
-      lastMessageTimeRef.current = Date.now();
+      try {
+        const messageData = JSON.parse(event.data);
+        console.log("💬 Message received:", messageData);
+        
+        messagesReceivedRef.current++;
+        lastMessageTimeRef.current = Date.now();
 
-      if (connectionError && connectionError.includes("timeout")) {
-        setConnectionError(null);
+        // Clear timeout error if messages are flowing
+        if (connectionError && connectionError.includes("timeout")) {
+          setConnectionError(null);
+        }
+
+        // ✅ Dispatch custom event for ActiveChat component
+        const customEvent = new CustomEvent("p2p-message", {
+          detail: event.data,
+        });
+        window.dispatchEvent(customEvent);
+      } catch (error) {
+        console.error("Failed to parse message:", error);
       }
-
-      // ✅ Dispatch custom event so ActiveChat component receives the message
-      const messageEvent = new CustomEvent("p2p-message", {
-        detail: event.data,
-      });
-      window.dispatchEvent(messageEvent);
     };
   };
 
