@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, Volume2, VolumeX, X } from "lucide-react";
+import { Send, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { useWebRTCChat } from "@/lib/chat/useWebRTCChat";
 
@@ -16,10 +16,12 @@ const T = {
 
 interface Message {
   id: string;
-  text: string;
   sender: string;
+  content: string;
   timestamp: number;
-  read: boolean; // ✅ FEATURE 3: Read/unread
+  side: "sent" | "received";
+  status?: "pending" | "sent" | "failed";
+  read?: boolean; // ✅ FEATURE 3: Read/unread
 }
 
 interface ActiveChatProps {
@@ -31,24 +33,45 @@ interface ActiveChatProps {
 
 export default function ActiveChat({ roomId, username, otherUser, onClose }: ActiveChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [notificationMuted, setNotificationMuted] = useState(false); // ✅ FEATURE 4: Mute/unmute
-  const [otherUserOnlineStatus, setOtherUserOnlineStatus] = useState<"online" | "idle" | "offline">("offline"); // ✅ FEATURE 2: Online status
+  const [inputValue, setInputValue] = useState("");
+  const [sending, setSending] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "error">("connecting");
+  const [notificationMuted, setNotificationMuted] = useState(false); // ✅ FEATURE 6: Mute/unmute
+  const [otherUserStatus, setOtherUserStatus] = useState<"online" | "idle" | "offline">("offline"); // ✅ FEATURE 4: Online status
 
-  const { sendMessage, connectionError, connectionReady } = useWebRTCChat(roomId, username, otherUser);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageVisibilityRef = useRef<Set<string>>(new Set()); // ✅ Track visible messages for auto-read
+  const { sendMessage, connectionReady, connectionError, peerConnection } = useWebRTCChat(roomId, username, otherUser);
 
-  // ✅ FEATURE 1: Auto-scroll to top (reverse chronological)
-  const scrollToTop = () => {
-    setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  const messageQueueRef = useRef<Array<{ content: string; id: string }>>([]); // Message queue
+  const messagesContainerRef = useRef<HTMLDivElement>(null); // ✅ FEATURE 1 & 2: Scroll reference
+  const lastOtherUserMessageTimeRef = useRef<number>(0); // ✅ FEATURE 4: Track online status
+  const visibleMessagesRef = useRef<Set<string>>(new Set()); // ✅ FEATURE 3: Track visible messages
+
+  // ✅ FEATURE 4: Update online status based on last message time
+  useEffect(() => {
+    const updateStatus = () => {
+      if (lastOtherUserMessageTimeRef.current === 0) {
+        setOtherUserStatus("offline");
+        return;
       }
-    }, 0);
-  };
 
-  // ✅ FEATURE 3: Auto-mark as read when message is visible
+      const timeSinceLastMessage = Date.now() - lastOtherUserMessageTimeRef.current;
+
+      if (timeSinceLastMessage < 2 * 60 * 1000) {
+        setOtherUserStatus("online");
+      } else if (timeSinceLastMessage < 10 * 60 * 1000) {
+        setOtherUserStatus("idle");
+      } else {
+        setOtherUserStatus("offline");
+      }
+    };
+
+    updateStatus();
+    const interval = setInterval(updateStatus, 30000); // Update every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [messages]);
+
+  // ✅ FEATURE 3: Auto-mark messages as read when visible
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -57,24 +80,23 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
           if (!messageId) return;
 
           if (entry.isIntersecting) {
-            messageVisibilityRef.current.add(messageId);
+            visibleMessagesRef.current.add(messageId);
 
-            // Mark as read after 1 second of being visible
+            // Auto-mark as read after 1 second
             setTimeout(() => {
               setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === messageId ? { ...msg, read: true } : msg
-                )
+                prev.map((msg) => (msg.id === messageId ? { ...msg, read: true } : msg))
               );
             }, 1000);
           } else {
-            messageVisibilityRef.current.delete(messageId);
+            visibleMessagesRef.current.delete(messageId);
           }
         });
       },
       { threshold: 0.5 }
     );
 
+    // Observe all messages
     document.querySelectorAll("[data-message-id]").forEach((el) => {
       observer.observe(el);
     });
@@ -82,69 +104,108 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
     return () => observer.disconnect();
   }, [messages]);
 
-  // ✅ FEATURE 4: Listen for messages via WebRTC
+  // ✅ FEATURE 1 & 2: Auto-scroll to top when new message arrives
+  const scrollToTop = () => {
+    setTimeout(() => {
+      if (messagesContainerRef.current && messagesContainerRef.current.firstChild) {
+        const firstMessage = messagesContainerRef.current.firstChild as HTMLElement;
+        firstMessage.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 0);
+  };
+
+  // ✅ Update connection status
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    if (connectionError) {
+      setConnectionStatus("error");
+      console.error("Connection error:", connectionError);
+    } else if (connectionReady) {
+      setConnectionStatus("connected");
+      console.log("✅ Connection ready");
+      processMessageQueue();
+    } else {
+      setConnectionStatus("connecting");
+    }
+  }, [connectionReady, connectionError]);
+
+  // Process queued messages
+  const processMessageQueue = async () => {
+    if (messageQueueRef.current.length === 0) return;
+
+    console.log(`Processing ${messageQueueRef.current.length} queued messages`);
+
+    for (const queuedMessage of messageQueueRef.current) {
+      const success = await sendMessage(queuedMessage.content);
+      if (success) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === queuedMessage.id ? { ...msg, status: "sent" } : msg
+          )
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === queuedMessage.id ? { ...msg, status: "failed" } : msg
+          )
+        );
+      }
+    }
+
+    messageQueueRef.current = [];
+  };
+
+  // ✅ Listen for incoming messages
+  useEffect(() => {
+    if (!peerConnection) return;
+
+    const handleDataChannelMessage = (event: MessageEvent) => {
       try {
-        const messageData = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        console.log("Received message:", data);
+
         const newMessage: Message = {
-          id: `${messageData.sender}-${messageData.timestamp}`,
-          text: messageData.text,
-          sender: messageData.sender,
-          timestamp: messageData.timestamp,
-          read: false, // Received messages start as unread
+          id: `msg-${Date.now()}-${Math.random()}`,
+          sender: data.sender,
+          content: data.text,
+          timestamp: data.timestamp,
+          side: "received",
+          status: "sent",
+          read: false, // ✅ FEATURE 3: New received messages start as unread
         };
 
-        setMessages((prev) => [newMessage, ...prev]); // ✅ Add to top (reverse order)
+        // ✅ FEATURE 4: Update last message time for online status
+        lastOtherUserMessageTimeRef.current = Date.now();
+
+        // ✅ FEATURE 1: Add to top (reverse order)
+        setMessages((prev) => [newMessage, ...prev]);
+
+        // ✅ FEATURE 2: Auto-scroll to top
         scrollToTop();
 
-        // ✅ FEATURE 4: Play notification sound if tab not focused and not muted
+        // ✅ FEATURE 5: Play notification sound if tab not focused and not muted
         if (!document.hasFocus() && !notificationMuted) {
           playNotificationSound();
         }
       } catch (error) {
-        console.error("Error parsing message:", error);
+        console.error("Failed to parse message:", error);
       }
     };
 
-    // This would be called from useWebRTCChat when message is received
-    window.addEventListener("p2p-message", handleMessage as EventListener);
-    return () => window.removeEventListener("p2p-message", handleMessage as EventListener);
-  }, [notificationMuted]);
-
-  // ✅ FEATURE 2: Detect other user's online status (based on message timestamps)
-  useEffect(() => {
-    const updateOnlineStatus = () => {
-      const otherUserMessages = messages.filter((msg) => msg.sender === otherUser);
-      if (otherUserMessages.length === 0) {
-        setOtherUserOnlineStatus("offline");
-        return;
-      }
-
-      const lastMessageTime = otherUserMessages[0].timestamp;
-      const timeSinceLastMessage = Date.now() - lastMessageTime;
-
-      if (timeSinceLastMessage < 2 * 60 * 1000) {
-        // Less than 2 minutes
-        setOtherUserOnlineStatus("online");
-      } else if (timeSinceLastMessage < 10 * 60 * 1000) {
-        // Less than 10 minutes
-        setOtherUserOnlineStatus("idle");
-      } else {
-        setOtherUserOnlineStatus("offline");
-      }
+    const handleDataChannel = (event: RTCDataChannelEvent) => {
+      console.log("Data channel received:", event.channel.label);
+      event.channel.onmessage = handleDataChannelMessage;
     };
 
-    const interval = setInterval(updateOnlineStatus, 10000); // Update every 10 seconds
-    updateOnlineStatus(); // Initial check
+    peerConnection.ondatachannel = handleDataChannel;
 
-    return () => clearInterval(interval);
-  }, [messages, otherUser]);
+    return () => {
+      peerConnection.ondatachannel = null;
+    };
+  }, [peerConnection, notificationMuted]);
 
-  // ✅ FEATURE 4: Play notification sound
+  // ✅ FEATURE 5: Play notification sound
   const playNotificationSound = () => {
     try {
-      // Use Web Audio API to play a beep sound
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -152,7 +213,7 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      oscillator.frequency.value = 800; // 800 Hz beep
+      oscillator.frequency.value = 800;
       oscillator.type = "sine";
 
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -165,91 +226,174 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
     }
   };
 
-  // Send message handler
-  const handleSendMessage = async () => {
-    if (!messageInput.trim()) return;
+  // Handle send message
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!inputValue.trim()) return;
+
+    const messageId = `msg-${Date.now()}`;
+    const messageContent = inputValue;
 
     const newMessage: Message = {
-      id: `${username}-${Date.now()}`,
-      text: messageInput,
+      id: messageId,
       sender: username,
+      content: messageContent,
       timestamp: Date.now(),
+      side: "sent",
+      status: connectionReady ? "pending" : "pending",
       read: true, // Own messages are marked as read
     };
 
-    setMessages((prev) => [newMessage, ...prev]); // ✅ Add to top
+    // ✅ FEATURE 1: Add to top
+    setMessages((prev) => [newMessage, ...prev]);
+
+    // ✅ FEATURE 2: Auto-scroll to top
     scrollToTop();
 
-    const success = await sendMessage(messageInput);
-    if (!success) {
-      toast.error("Failed to send message");
-    }
+    setInputValue("");
+    setSending(true);
 
-    setMessageInput("");
+    try {
+      if (!connectionReady) {
+        console.log("Connection not ready - queueing message");
+        messageQueueRef.current.push({ content: messageContent, id: messageId });
+        toast.info("Connection not ready - message will be sent when connected");
+        setSending(false);
+        return;
+      }
+
+      const success = await sendMessage(messageContent);
+
+      if (success) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId ? { ...msg, status: "sent" } : msg
+          )
+        );
+        console.log("Message sent successfully");
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId ? { ...msg, status: "failed" } : msg
+          )
+        );
+        toast.error("Failed to send message - connection not ready");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, status: "failed" } : msg
+        )
+      );
+      toast.error("Error sending message");
+    } finally {
+      setSending(false);
+    }
   };
 
-  // ✅ FEATURE 2: Online status indicator colors
+  // ✅ FEATURE 4: Get status color and text
   const getStatusColor = () => {
-    if (otherUserOnlineStatus === "online") return "#9fff00"; // Green
-    if (otherUserOnlineStatus === "idle") return "#ffaa00"; // Yellow/Orange
+    if (otherUserStatus === "online") return "#4ade80"; // Green
+    if (otherUserStatus === "idle") return "#fbbf24"; // Yellow
     return "#666"; // Grey
   };
 
   const getStatusText = () => {
-    if (otherUserOnlineStatus === "online") return "Online";
-    if (otherUserOnlineStatus === "idle") return "Idle";
+    if (otherUserStatus === "online") return "Online";
+    if (otherUserStatus === "idle") return "Idle";
     return "Offline";
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", fontFamily: T.font }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: T.bg,
+        borderRadius: 16,
+        overflow: "hidden",
+        border: `1px solid ${T.border}`,
+      }}
+    >
       {/* Header */}
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           padding: "16px 20px",
           borderBottom: `1px solid ${T.border}`,
-          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <MessageCircle size={24} style={{ color: T.accent }} />
-          <div>
-            <h2 style={{ margin: 0, fontSize: 16, color: T.text }}>@{otherUser}</h2>
-            {/* ✅ FEATURE 2: Online status display */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: getStatusColor(),
-                }}
-              />
-              <span style={{ fontSize: 11, color: T.muted }}>{getStatusText()}</span>
-            </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>@{otherUser}</h3>
+            {/* ✅ FEATURE 4: Online status indicator */}
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: getStatusColor(),
+              }}
+            />
           </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background:
+                  connectionStatus === "connected"
+                    ? "#4ade80"
+                    : connectionStatus === "error"
+                      ? "#ff4444"
+                      : "#fbbf24",
+                animation: connectionStatus === "connecting" ? "pulse 1.5s infinite" : "none",
+              }}
+            />
+            <span style={{ fontSize: 11, color: T.muted }}>
+              {connectionStatus === "connected" && "✅ Connected"}
+              {connectionStatus === "connecting" && "⏳ Connecting..."}
+              {connectionStatus === "error" && "❌ Connection Error"}
+            </span>
+            <span style={{ fontSize: 10, color: T.muted, marginLeft: 8 }}>({getStatusText()})</span>
+          </div>
+
+          {connectionError && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+              <AlertCircle size={12} style={{ color: "#ff4444" }} />
+              <span style={{ fontSize: 10, color: "#ff4444" }}>{connectionError}</span>
+            </div>
+          )}
         </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {/* ✅ FEATURE 4: Mute/Unmute button */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* ✅ FEATURE 6: Mute/Unmute button */}
           <button
-            onClick={() => setNotificationMuted(!notificationMuted)}
+            onClick={() => {
+              setNotificationMuted(!notificationMuted);
+              localStorage.setItem("chatNotificationMuted", JSON.stringify(!notificationMuted));
+              toast.success(notificationMuted ? "Notifications enabled" : "Notifications muted");
+            }}
             style={{
               background: "transparent",
               border: `1px solid ${T.border}`,
               color: notificationMuted ? "#ff6666" : T.accent,
-              padding: "8px 12px",
+              padding: "6px 12px",
               borderRadius: 6,
               cursor: "pointer",
+              fontSize: 12,
+              fontFamily: T.font,
+              fontWeight: 600,
               display: "flex",
               alignItems: "center",
               gap: 6,
-              fontSize: 12,
-              fontFamily: T.font,
-              fontWeight: 700,
             }}
             title={notificationMuted ? "Notifications muted" : "Notifications enabled"}
           >
@@ -262,155 +406,138 @@ export default function ActiveChat({ roomId, username, otherUser, onClose }: Act
               background: "transparent",
               border: `1px solid ${T.border}`,
               color: T.text,
-              padding: "8px 12px",
+              padding: "6px 12px",
               borderRadius: 6,
               cursor: "pointer",
               fontSize: 12,
               fontFamily: T.font,
-              fontWeight: 700,
+              fontWeight: 600,
             }}
           >
-            <X size={16} />
+            Close
           </button>
         </div>
       </div>
 
-      {/* Connection Status */}
-      {connectionError && (
-        <div
-          style={{
-            padding: "12px 20px",
-            background: "rgba(255, 100, 100, 0.1)",
-            borderBottom: "1px solid rgba(255, 100, 100, 0.3)",
-            color: "#ff6464",
-            fontSize: 12,
-            marginBottom: 16,
-          }}
-        >
-          ⚠️ {connectionError}
-        </div>
-      )}
-
-      {/* Messages Container - ✅ FEATURE 1: Reverse order (newest at top) */}
+      {/* Messages Area - ✅ FEATURE 1: Reverse order display */}
       <div
+        ref={messagesContainerRef}
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "0 20px",
+          padding: "16px 20px",
           display: "flex",
-          flexDirection: "column-reverse", // ✅ Reverse display
+          flexDirection: "column",
+          gap: 12,
         }}
       >
-        <div>
-          {messages.length === 0 ? (
+        {messages.length === 0 ? (
+          <div style={{ textAlign: "center", color: T.muted, fontSize: 12, margin: "auto" }}>
+            {connectionStatus === "connecting"
+              ? "Connecting... Messages will appear here"
+              : "No messages yet. Start the conversation!"}
+          </div>
+        ) : (
+          messages.map((msg) => (
             <div
+              key={msg.id}
+              data-message-id={msg.id}
               style={{
-                textAlign: "center",
-                color: T.muted,
-                padding: "40px 20px",
-                fontSize: 14,
+                display: "flex",
+                justifyContent: msg.side === "sent" ? "flex-end" : "flex-start",
               }}
             >
-              No messages yet. Start the conversation!
-            </div>
-          ) : (
-            messages.map((msg) => (
               <div
-                key={msg.id}
-                data-message-id={msg.id}
                 style={{
-                  marginBottom: 12,
-                  display: "flex",
-                  justifyContent: msg.sender === username ? "flex-end" : "flex-start",
+                  maxWidth: "70%",
+                  background: msg.side === "sent" ? T.accent : T.card,
+                  color: msg.side === "sent" ? "#000" : T.text,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  wordBreak: "break-word",
+                  border: msg.side === "received" ? `1px solid ${T.border}` : "none",
+                  opacity: msg.status === "failed" ? 0.5 : 1,
                 }}
               >
-                <div
-                  style={{
-                    maxWidth: "60%",
-                    padding: "10px 14px",
-                    background: msg.sender === username ? T.accent : T.card,
-                    color: msg.sender === username ? "#000" : T.text,
-                    borderRadius: 8,
-                    wordWrap: "break-word",
-                  }}
-                >
-                  <div style={{ fontSize: 14, marginBottom: 4 }}>{msg.text}</div>
-                  {/* ✅ FEATURE 3: Read/Unread status next to timestamp */}
-                  <div
-                    style={{
-                      fontSize: 11,
-                      opacity: 0.7,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
-                    {msg.sender === username && (
-                      <span>{msg.read ? "✓✓" : "✓"}</span> // ✅ Show read/unread
-                    )}
-                  </div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: 11 }}>
+                  {msg.side === "sent" ? "You" : msg.sender}
+                  {msg.status === "pending" && " (sending...)"}
+                  {msg.status === "failed" && " (failed)"}
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.content}</p>
+                {/* ✅ FEATURE 3: Read/Unread status next to timestamp */}
+                <div style={{ fontSize: 10, opacity: 0.7, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4, marginTop: 4 }}>
+                  <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                  {msg.side === "sent" && (
+                    <span>{msg.read ? "✓✓" : "✓"}</span>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Input Area */}
-      <div
+      <form
+        onSubmit={handleSendMessage}
         style={{
           padding: "16px 20px",
           borderTop: `1px solid ${T.border}`,
           display: "flex",
-          gap: 12,
+          gap: 8,
+          background: connectionStatus === "error" ? "rgba(255,68,68,0.05)" : T.bg,
         }}
       >
         <input
           type="text"
-          value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          placeholder="Type a message..."
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder={
+            connectionStatus === "connecting"
+              ? "Connecting... You can type, message will be sent when ready"
+              : connectionStatus === "error"
+                ? "Connection error - refresh page"
+                : "Type a message..."
+          }
+          disabled={sending || connectionStatus === "error"}
           style={{
             flex: 1,
             padding: "10px 12px",
-            background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 6,
+            background: "#0a0a0a",
+            border: `1px solid ${connectionStatus === "error" ? "#ff4444" : T.border}`,
+            borderRadius: 8,
             color: T.text,
             fontFamily: T.font,
             fontSize: 13,
             outline: "none",
           }}
-          disabled={!connectionReady}
         />
+
         <button
-          onClick={handleSendMessage}
-          disabled={!messageInput.trim() || !connectionReady}
+          type="submit"
+          disabled={sending || !inputValue.trim() || connectionStatus === "error"}
           style={{
-            padding: "10px 20px",
+            padding: "10px 16px",
             background: T.accent,
             color: "#000",
             border: "none",
-            borderRadius: 6,
-            cursor: connectionReady ? "pointer" : "not-allowed",
+            borderRadius: 8,
+            cursor: "pointer",
             fontFamily: T.font,
             fontWeight: 700,
             fontSize: 12,
-            opacity: connectionReady ? 1 : 0.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            opacity: !inputValue.trim() ? 0.5 : 1,
           }}
         >
+          {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
           Send
         </button>
-      </div>
+      </form>
     </div>
   );
 }
