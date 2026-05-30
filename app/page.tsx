@@ -27,7 +27,7 @@ export default function Home() {
         </p>
         <div className="flex gap-4 justify-center">
           <a href="/app" className="bg-primary text-dark px-8 py-3 rounded-lg font-semibold hover:opacity-90">
-            Try Now - It's Free
+            Try Now - It&apos;s Free
           </a>
           <a href="#how-it-works" className="border-2 border-primary text-primary px-8 py-3 rounded-lg font-semibold hover:bg-primary hover:text-dark">
             Learn More
