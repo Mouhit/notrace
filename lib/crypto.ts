@@ -53,7 +53,7 @@ export async function encryptMessage(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
+      iv: nonce as BufferSource,
       tagLength: TAG_LENGTH,
     },
     key,
@@ -77,7 +77,7 @@ export async function decryptMessage(
   const decrypted = await crypto.subtle.decrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
+      iv: nonce as BufferSource,
       tagLength: TAG_LENGTH,
     },
     key,
