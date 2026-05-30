@@ -20,7 +20,7 @@
     "i18next": "^23.7.0",
     "lucide-react": "^0.294.0",
     "next-i18next": "^14.0.0",
-    "qrcode.react": "^1.0.1",
+    "qrcode.react": "^1.0.0",
     "react-hot-toast": "^2.4.1",
     "uuid": "^9.0.1"
   },
