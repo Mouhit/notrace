@@ -9,7 +9,6 @@ export default function SecretPage() {
   const secretId = searchParams.get('id');
   const keyFromUrl = searchParams.get('key');
 
-  const [secret, setSecret] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
