@@ -27,7 +27,7 @@ export default function AppPage() {
       const key = await generateEncryptionKey();
 
       // Step 2: Encrypt message
-      const { encrypted, nonce } = await encryptMessage(message, key);
+      const { encrypted } = await encryptMessage(message, key);
 
       // Step 3: Hash password if provided
       let passwordHash = null;
