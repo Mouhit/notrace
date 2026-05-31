@@ -9,13 +9,14 @@ export default function SecretPage() {
   const secretId = searchParams.get('id');
   
   const [keyFromUrl, setKeyFromUrl] = useState<string | null>(null);
+  const [urlLoaded, setUrlLoaded] = useState(false); // Track if we've tried to load URL
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [decrypted, setDecrypted] = useState(false);
   const [decryptedMessage, setDecryptedMessage] = useState('');
 
-  // Extract key from URL hash (fragment)
+  // Extract key from URL hash (fragment) - runs first
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
@@ -24,16 +25,17 @@ export default function SecretPage() {
         const key = params.get('key');
         setKeyFromUrl(key);
       }
+      // Mark that we've tried to load the URL (whether key found or not)
+      setUrlLoaded(true);
     }
   }, []);
 
+  // Only validate AFTER we've tried to load the URL
   useEffect(() => {
-    if (!secretId || !keyFromUrl) {
-      if (secretId === null || keyFromUrl === null) {
-        setError('Invalid or missing secret link');
-      }
+    if (urlLoaded && (!secretId || !keyFromUrl)) {
+      setError('Invalid or missing secret link');
     }
-  }, [secretId, keyFromUrl]);
+  }, [urlLoaded, secretId, keyFromUrl]);
 
   const handleReveal = async () => {
     setError('');
@@ -90,7 +92,8 @@ export default function SecretPage() {
     }
   };
 
-  if (!secretId || !keyFromUrl) {
+  // Show error only after we've loaded the URL
+  if (urlLoaded && (!secretId || !keyFromUrl)) {
     return (
       <main className="min-h-screen bg-light dark:bg-dark flex items-center justify-center">
         <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
@@ -104,6 +107,17 @@ export default function SecretPage() {
           >
             Return Home
           </a>
+        </div>
+      </main>
+    );
+  }
+
+  // Show loading while parsing URL
+  if (!urlLoaded) {
+    return (
+      <main className="min-h-screen bg-light dark:bg-dark flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400">Loading secret...</p>
         </div>
       </main>
     );
@@ -172,7 +186,6 @@ export default function SecretPage() {
                 </p>
               </div>
 
-              {/* Optional password field */}
               <div>
                 <label htmlFor="password" className="block text-sm font-semibold mb-2">
                   Password (if required)
