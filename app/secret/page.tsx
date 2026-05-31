@@ -7,17 +7,31 @@ import { importKey, decryptMessage } from '@/lib/crypto';
 export default function SecretPage() {
   const searchParams = useSearchParams();
   const secretId = searchParams.get('id');
-  const keyFromUrl = searchParams.get('key');
-
+  
+  const [keyFromUrl, setKeyFromUrl] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [decrypted, setDecrypted] = useState(false);
   const [decryptedMessage, setDecryptedMessage] = useState('');
 
+  // Extract key from URL hash (fragment)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash) {
+        const params = new URLSearchParams(hash.substring(1));
+        const key = params.get('key');
+        setKeyFromUrl(key);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!secretId || !keyFromUrl) {
-      setError('Invalid or missing secret link');
+      if (secretId === null || keyFromUrl === null) {
+        setError('Invalid or missing secret link');
+      }
     }
   }, [secretId, keyFromUrl]);
 
@@ -82,7 +96,7 @@ export default function SecretPage() {
         <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
           <p className="text-red-600 dark:text-red-400">❌ Invalid secret link</p>
           <p className="text-gray-600 dark:text-gray-400 mt-4">
-            This link is incomplete or has expired.
+            {error || 'This link is incomplete or has expired.'}
           </p>
           <a
             href="/"
