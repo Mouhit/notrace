@@ -1,5 +1,6 @@
-// app/app/page.tsx - OPTIONAL UPDATE for create page
-// Add share section to creation confirmation - By Engage Ad
+// app/app/page.tsx
+// Create secret page with share buttons - FIXED VERSION
+// By Engage Ad
 
 'use client';
 
@@ -126,10 +127,9 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* Share Buttons (NEW) */}
+              {/* Share Buttons - FIXED: Removed secretId parameter (not needed) */}
               <ShareButtons
                 secretLink={result.link}
-                secretId={result.id}
                 onQRClick={() => setShowQRModal(true)}
               />
 
@@ -213,7 +213,7 @@ export default function AppPage() {
         </div>
       </div>
 
-      {/* QR Code Modal (NEW) */}
+      {/* QR Code Modal - Keeps secretId for filename */}
       {result && (
         <QRCodeModal
           isOpen={showQRModal}
