@@ -7,11 +7,10 @@ import { useState } from 'react';
 
 interface ShareButtonsProps {
   secretLink: string;
-  secretId: string;
   onQRClick?: () => void;
 }
 
-export default function ShareButtons({ secretLink, secretId, onQRClick }: ShareButtonsProps) {
+export default function ShareButtons({ secretLink, onQRClick }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
 
   const handleWhatsAppShare = () => {

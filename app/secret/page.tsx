@@ -1,6 +1,4 @@
-// app/secret/page.tsx
-// Read secret page with share buttons and QR modal - By Engage Ad
-
+// app/secret/page.tsx - UPDATED for fixed ShareButtons
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,7 +20,6 @@ export default function SecretPage() {
   const [decryptedMessage, setDecryptedMessage] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
 
-  // Extract key from URL hash (fragment)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
@@ -35,7 +32,6 @@ export default function SecretPage() {
     }
   }, []);
 
-  // Only validate AFTER we've tried to load the URL
   useEffect(() => {
     if (urlLoaded && (!secretId || !keyFromUrl)) {
       setError('Invalid or missing secret link');
@@ -51,7 +47,6 @@ export default function SecretPage() {
         throw new Error('Invalid secret link');
       }
 
-      // Fetch encrypted secret from server
       const response = await fetch(`/api/secrets/read?id=${secretId}`);
 
       if (!response.ok) {
@@ -68,16 +63,12 @@ export default function SecretPage() {
         throw new Error('This secret requires a password');
       }
 
-      // Import key from URL
       const key = await importKey(decodeURIComponent(keyFromUrl));
-
-      // Decrypt message (only 2 parameters - nonce is inside encrypted_blob)
       const decryptedText = await decryptMessage(encrypted_blob, key);
 
       setDecryptedMessage(decryptedText);
       setDecrypted(true);
 
-      // Delete secret after reading (burn after read)
       try {
         await fetch('/api/secrets/read-confirm', {
           method: 'POST',
@@ -136,7 +127,6 @@ export default function SecretPage() {
 
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           {decrypted ? (
-            // Decrypted message display
             <div className="space-y-6">
               <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
@@ -156,10 +146,8 @@ export default function SecretPage() {
                 </p>
               </div>
 
-              {/* Share Buttons */}
               <ShareButtons
                 secretLink={typeof window !== 'undefined' ? window.location.href : ''}
-                secretId={secretId}
                 onQRClick={() => setShowQRModal(true)}
               />
 
@@ -182,7 +170,6 @@ export default function SecretPage() {
               </div>
             </div>
           ) : (
-            // Before decryption
             <form onSubmit={(e) => { e.preventDefault(); handleReveal(); }} className="space-y-6">
               {error && (
                 <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg">
@@ -235,7 +222,6 @@ export default function SecretPage() {
         </div>
       </div>
 
-      {/* QR Code Modal */}
       {secretId && (
         <QRCodeModal
           isOpen={showQRModal}
