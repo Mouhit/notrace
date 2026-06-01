@@ -9,14 +9,14 @@ export default function SecretPage() {
   const secretId = searchParams.get('id');
   
   const [keyFromUrl, setKeyFromUrl] = useState<string | null>(null);
-  const [urlLoaded, setUrlLoaded] = useState(false); // Track if we've tried to load URL
+  const [urlLoaded, setUrlLoaded] = useState(false);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [decrypted, setDecrypted] = useState(false);
   const [decryptedMessage, setDecryptedMessage] = useState('');
 
-  // Extract key from URL hash (fragment) - runs first
+  // Extract key from URL hash (fragment)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
@@ -25,7 +25,6 @@ export default function SecretPage() {
         const key = params.get('key');
         setKeyFromUrl(key);
       }
-      // Mark that we've tried to load the URL (whether key found or not)
       setUrlLoaded(true);
     }
   }, []);
@@ -66,10 +65,10 @@ export default function SecretPage() {
       // Import key from URL
       const key = await importKey(decodeURIComponent(keyFromUrl));
 
-      // Decrypt message
-      const decrypted = await decryptMessage(encrypted_blob, keyFromUrl, key);
+      // Decrypt message (only 2 parameters now - nonce is inside encrypted_blob)
+      const decryptedText = await decryptMessage(encrypted_blob, key);
 
-      setDecryptedMessage(decrypted);
+      setDecryptedMessage(decryptedText);
       setDecrypted(true);
 
       // Delete secret after reading (burn after read)

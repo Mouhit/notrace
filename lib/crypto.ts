@@ -1,4 +1,5 @@
 // lib/crypto.ts - AES-256-GCM Encryption for NoTrace by Engage Ad
+// FIXED: Nonce included in encrypted blob
 
 const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
@@ -45,7 +46,7 @@ export async function importKey(keyString: string): Promise<CryptoKey> {
 export async function encryptMessage(
   message: string,
   key: CryptoKey
-): Promise<{ encrypted: string; nonce: string }> {
+): Promise<{ encrypted: string }> {
   const nonce = generateNonce();
   const encoder = new TextEncoder();
   const messageData = encoder.encode(message);
@@ -53,31 +54,39 @@ export async function encryptMessage(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: ALGORITHM,
-      iv: nonce as BufferSource,
+      iv: nonce,
       tagLength: TAG_LENGTH,
     },
     key,
     messageData
   );
 
+  // Combine nonce + encrypted data
+  const encryptedBytes = new Uint8Array(encrypted);
+  const combined = new Uint8Array(nonce.length + encryptedBytes.length);
+  combined.set(nonce, 0);
+  combined.set(encryptedBytes, nonce.length);
+
   return {
-    encrypted: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-    nonce: btoa(String.fromCharCode(...nonce)),
+    encrypted: btoa(String.fromCharCode(...combined)),
   };
 }
 
 export async function decryptMessage(
   encryptedBase64: string,
-  nonceBase64: string,
   key: CryptoKey
 ): Promise<string> {
-  const encryptedData = new Uint8Array(atob(encryptedBase64).split('').map(c => c.charCodeAt(0)));
-  const nonce = new Uint8Array(atob(nonceBase64).split('').map(c => c.charCodeAt(0)));
+  // Decode from base64
+  const combined = new Uint8Array(atob(encryptedBase64).split('').map(c => c.charCodeAt(0)));
+
+  // Extract nonce (first 12 bytes) and encrypted data (rest)
+  const nonce = combined.slice(0, NONCE_LENGTH);
+  const encryptedData = combined.slice(NONCE_LENGTH);
 
   const decrypted = await crypto.subtle.decrypt(
     {
       name: ALGORITHM,
-      iv: nonce as BufferSource,
+      iv: nonce,
       tagLength: TAG_LENGTH,
     },
     key,
