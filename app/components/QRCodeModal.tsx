@@ -23,7 +23,7 @@ export default function QRCodeModal({ isOpen, onClose, secretLink, secretId }: Q
     if (isOpen && !qrCode) {
       generateQRCode();
     }
-  }, [isOpen, qrCode]);
+  }, [isOpen]);
 
   const generateQRCode = async () => {
     setLoading(true);
@@ -31,10 +31,8 @@ export default function QRCodeModal({ isOpen, onClose, secretLink, secretId }: Q
     try {
       const qrDataUrl = await QRCode.toDataURL(secretLink, {
         errorCorrectionLevel: 'H',
-        type: 'image/png',
-        quality: 0.95,
-        margin: 1,
         width: 300,
+        margin: 1,
         color: {
           dark: '#0f172a',
           light: '#ffffff',
