@@ -1,7 +1,12 @@
+// app/app/page.tsx - OPTIONAL UPDATE for create page
+// Add share section to creation confirmation - By Engage Ad
+
 'use client';
 
 import { useState } from 'react';
 import { generateEncryptionKey, encryptMessage, exportKey, hashPassword } from '@/lib/crypto';
+import ShareButtons from '@/app/components/ShareButtons';
+import QRCodeModal from '@/app/components/QRCodeModal';
 
 export default function AppPage() {
   const [message, setMessage] = useState('');
@@ -10,6 +15,7 @@ export default function AppPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ id: string; link: string } | null>(null);
   const [error, setError] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const handleCreateSecret = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +101,7 @@ export default function AppPage() {
 
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           {result ? (
-            // Success state - show link
+            // Success state - show link and sharing options
             <div className="space-y-6">
               <div className="p-4 bg-green-50 dark:bg-green-900 rounded-lg">
                 <p className="text-green-900 dark:text-green-100 font-semibold mb-4">
@@ -119,6 +125,14 @@ export default function AppPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Share Buttons (NEW) */}
+              <ShareButtons
+                secretLink={result.link}
+                secretId={result.id}
+                onQRClick={() => setShowQRModal(true)}
+              />
+
               <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
                   📌 <strong>Share this link</strong> with anyone. The recipient can read the message once, then it self-destructs.
@@ -198,6 +212,16 @@ export default function AppPage() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal (NEW) */}
+      {result && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          secretLink={result.link}
+          secretId={result.id}
+        />
+      )}
     </main>
   );
 }

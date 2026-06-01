@@ -1,13 +1,18 @@
+// app/secret/page.tsx
+// Read secret page with share buttons and QR modal - By Engage Ad
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { importKey, decryptMessage } from '@/lib/crypto';
+import ShareButtons from '@/app/components/ShareButtons';
+import QRCodeModal from '@/app/components/QRCodeModal';
 
 export default function SecretPage() {
   const searchParams = useSearchParams();
   const secretId = searchParams.get('id');
-  
+
   const [keyFromUrl, setKeyFromUrl] = useState<string | null>(null);
   const [urlLoaded, setUrlLoaded] = useState(false);
   const [password, setPassword] = useState('');
@@ -15,6 +20,7 @@ export default function SecretPage() {
   const [error, setError] = useState('');
   const [decrypted, setDecrypted] = useState(false);
   const [decryptedMessage, setDecryptedMessage] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Extract key from URL hash (fragment)
   useEffect(() => {
@@ -65,7 +71,7 @@ export default function SecretPage() {
       // Import key from URL
       const key = await importKey(decodeURIComponent(keyFromUrl));
 
-      // Decrypt message (only 2 parameters now - nonce is inside encrypted_blob)
+      // Decrypt message (only 2 parameters - nonce is inside encrypted_blob)
       const decryptedText = await decryptMessage(encrypted_blob, key);
 
       setDecryptedMessage(decryptedText);
@@ -91,8 +97,17 @@ export default function SecretPage() {
     }
   };
 
-  // Show error only after we've loaded the URL
-  if (urlLoaded && (!secretId || !keyFromUrl)) {
+  if (!secretId || !keyFromUrl) {
+    if (!urlLoaded) {
+      return (
+        <main className="min-h-screen bg-light dark:bg-dark flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading secret...</p>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-light dark:bg-dark flex items-center justify-center">
         <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
@@ -106,17 +121,6 @@ export default function SecretPage() {
           >
             Return Home
           </a>
-        </div>
-      </main>
-    );
-  }
-
-  // Show loading while parsing URL
-  if (!urlLoaded) {
-    return (
-      <main className="min-h-screen bg-light dark:bg-dark flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">Loading secret...</p>
         </div>
       </main>
     );
@@ -151,6 +155,13 @@ export default function SecretPage() {
                   ⚠️ This message is now deleted from our servers. Do not refresh this page as you won&apos;t be able to see it again.
                 </p>
               </div>
+
+              {/* Share Buttons */}
+              <ShareButtons
+                secretLink={typeof window !== 'undefined' ? window.location.href : ''}
+                secretId={secretId}
+                onQRClick={() => setShowQRModal(true)}
+              />
 
               <div className="space-y-2">
                 <button
@@ -223,6 +234,16 @@ export default function SecretPage() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {secretId && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          secretLink={typeof window !== 'undefined' ? window.location.href : ''}
+          secretId={secretId}
+        />
+      )}
     </main>
   );
 }
