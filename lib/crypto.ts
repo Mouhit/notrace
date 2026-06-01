@@ -1,5 +1,5 @@
 // lib/crypto.ts - AES-256-GCM Encryption for NoTrace by Engage Ad
-// FIXED: Nonce included in encrypted blob
+// FIXED: Proper type casting for nonce
 
 const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
@@ -54,7 +54,7 @@ export async function encryptMessage(
   const encrypted = await crypto.subtle.encrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
+      iv: nonce as BufferSource,
       tagLength: TAG_LENGTH,
     },
     key,
@@ -86,7 +86,7 @@ export async function decryptMessage(
   const decrypted = await crypto.subtle.decrypt(
     {
       name: ALGORITHM,
-      iv: nonce,
+      iv: nonce as BufferSource,
       tagLength: TAG_LENGTH,
     },
     key,
