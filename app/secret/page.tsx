@@ -2,15 +2,11 @@
 
 export const dynamic = 'force-dynamic';
 
-// app/secret/page.tsx
-// U1 UPDATE: Read secret page with Create Secret, Copy Message, Return Home buttons
-// By Engage Ad
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { importKey, decryptMessage } from '@/lib/crypto';
 
-export default function SecretPage() {
+function SecretPageContent() {
   const searchParams = useSearchParams();
   const secretId = searchParams.get('id');
 
@@ -244,5 +240,13 @@ export default function SecretPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SecretPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SecretPageContent />
+    </Suspense>
   );
 }
