@@ -2,7 +2,7 @@
 // Payment reconciliation logic - By Engage Ad
 
 import { createClient } from '@supabase/supabase-js';
-import { PAYMENT_STATUS, SUBSCRIPTION_STATUS } from './constants';
+import { PAYMENT_STATUS } from './constants';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
