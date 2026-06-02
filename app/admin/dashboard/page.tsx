@@ -5,17 +5,7 @@
 
 import { useState, useEffect } from 'react';
 
-interface Payment {
-  id: string;
-  user_id: string;
-  razorpay_payment_id: string;
-  amount_paise: number;
-  status: string;
-  created_at: string;
-}
-
 export default function AdminDashboard() {
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminKey, setAdminKey] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
