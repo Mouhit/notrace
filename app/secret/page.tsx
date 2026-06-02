@@ -1,11 +1,12 @@
-// app/secret/page.tsx - UPDATED for fixed ShareButtons
+// app/secret/page.tsx
+// U1 UPDATE: Read secret page with 3 buttons (Create Secret, Copy Message, Return Home)
+// By Engage Ad
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { importKey, decryptMessage } from '@/lib/crypto';
-import ShareButtons from '@/app/components/ShareButtons';
-import QRCodeModal from '@/app/components/QRCodeModal';
 
 export default function SecretPage() {
   const searchParams = useSearchParams();
@@ -18,7 +19,7 @@ export default function SecretPage() {
   const [error, setError] = useState('');
   const [decrypted, setDecrypted] = useState(false);
   const [decryptedMessage, setDecryptedMessage] = useState('');
-  const [showQRModal, setShowQRModal] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -88,6 +89,17 @@ export default function SecretPage() {
     }
   };
 
+  const handleCopyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(decryptedMessage);
+      setCopyFeedback('✅ Copied to clipboard!');
+      setTimeout(() => setCopyFeedback(''), 2000);
+    } catch (err) {
+      setCopyFeedback('❌ Failed to copy');
+      setTimeout(() => setCopyFeedback(''), 2000);
+    }
+  };
+
   if (!secretId || !keyFromUrl) {
     if (!urlLoaded) {
       return (
@@ -127,6 +139,7 @@ export default function SecretPage() {
 
         <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
           {decrypted ? (
+            // Decrypted message display - U1: Only 3 buttons
             <div className="space-y-6">
               <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
                 <p className="text-sm text-blue-900 dark:text-blue-100">
@@ -146,30 +159,37 @@ export default function SecretPage() {
                 </p>
               </div>
 
-              <ShareButtons
-                secretLink={typeof window !== 'undefined' ? window.location.href : ''}
-                onQRClick={() => setShowQRModal(true)}
-              />
-
+              {/* U1: Three buttons only */}
               <div className="space-y-2">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(decryptedMessage);
-                    alert('Message copied to clipboard');
-                  }}
-                  className="w-full bg-primary text-dark font-semibold py-2 rounded-lg hover:opacity-90"
+                  onClick={handleCopyMessage}
+                  className="w-full bg-primary text-dark font-semibold py-3 rounded-lg hover:opacity-90 transition"
                 >
-                  Copy Message
+                  📋 Copy Message
                 </button>
                 <a
-                  href="/"
-                  className="block text-center border-2 border-primary text-primary font-semibold py-2 rounded-lg hover:bg-primary hover:text-dark"
+                  href="/app"
+                  className="block text-center bg-gray-200 dark:bg-gray-700 text-dark dark:text-light font-semibold py-3 rounded-lg hover:opacity-90 transition"
                 >
-                  Return Home
+                  ✏️ Create Secret
+                </a>
+                <a
+                  href="/"
+                  className="block text-center border-2 border-primary text-primary font-semibold py-3 rounded-lg hover:bg-primary hover:text-dark transition"
+                >
+                  🏠 Return Home
                 </a>
               </div>
+
+              {/* Copy feedback */}
+              {copyFeedback && (
+                <div className="p-3 bg-green-50 dark:bg-green-900 rounded-lg text-center text-sm text-green-900 dark:text-green-100">
+                  {copyFeedback}
+                </div>
+              )}
             </div>
           ) : (
+            // Before decryption
             <form onSubmit={(e) => { e.preventDefault(); handleReveal(); }} className="space-y-6">
               {error && (
                 <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg">
@@ -221,15 +241,6 @@ export default function SecretPage() {
           </div>
         </div>
       </div>
-
-      {secretId && (
-        <QRCodeModal
-          isOpen={showQRModal}
-          onClose={() => setShowQRModal(false)}
-          secretLink={typeof window !== 'undefined' ? window.location.href : ''}
-          secretId={secretId}
-        />
-      )}
     </main>
   );
 }
