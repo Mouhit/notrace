@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { userId, plan, idempotencyKey } = await request.json();
+    const { userId, plan } = await request.json();
 
     if (!userId || !plan) {
       return Response.json(
