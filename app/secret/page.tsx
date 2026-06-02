@@ -1,10 +1,10 @@
+'use client';
+
 export const dynamic = 'force-dynamic';
 
 // app/secret/page.tsx
 // U1 UPDATE: Read secret page with Create Secret, Copy Message, Return Home buttons
 // By Engage Ad
-
-'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
