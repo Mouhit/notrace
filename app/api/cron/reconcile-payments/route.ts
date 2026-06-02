@@ -17,7 +17,6 @@ export async function GET(request: Request) {
     console.log(`✅ Payment reconciliation: fixed ${result.fixed}, failed ${result.failed}`);
 
     return Response.json({
-      success: true,
       ...result,
       timestamp: new Date().toISOString(),
     });
