@@ -20,7 +20,6 @@ export default function ShareButtons({ secretLink, onQRClick }: ShareButtonsProp
   };
 
   const handleTelegramShare = () => {
-    const message = `Check this secret (burns after reading): ${secretLink}`;
     const url = `https://t.me/share/url?url=${encodeURIComponent(secretLink)}&text=${encodeURIComponent('Check this secret (burns after reading):')}`;
     window.open(url, '_blank');
   };
