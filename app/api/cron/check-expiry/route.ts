@@ -2,7 +2,7 @@
 // Check expiry and apply grace periods - By Engage Ad
 
 import { createClient } from '@supabase/supabase-js';
-import { GRACE_PERIOD_DAYS, SUBSCRIPTION_STATUS } from '@/lib/constants';
+import { GRACE_PERIOD_DAYS } from '@/lib/constants';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
