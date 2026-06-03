@@ -27,14 +27,6 @@ export function paymentSuccessEmail(
             <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${transactionId}</p>
           </div>
           
-          <p>Your plan includes:</p>
-          <ul>
-            <li>Unlimited encrypted secrets</li>
-            <li>Zero-knowledge encryption</li>
-            <li>Auto-delete on read</li>
-            <li>24/7 support</li>
-          </ul>
-          
           <p><a href="https://notrace.co.in/app" style="background-color: #00e5a0; color: #0f172a; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Start Creating Secrets</a></p>
           
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">

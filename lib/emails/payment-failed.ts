@@ -20,19 +20,12 @@ export function paymentFailedEmail(email: string, plan: string, reason: string) 
             <p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>
           </div>
           
-          <h3>What to do next:</h3>
-          <ol>
-            <li>Check that your card details are correct</li>
-            <li>Try again with a different payment method</li>
-            <li>Contact your bank if the issue persists</li>
-          </ol>
-          
           <p><a href="https://notrace.co.in/checkout?plan=${plan}" style="background-color: #00e5a0; color: #0f172a; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Retry Payment</a></p>
           
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
           
           <p style="font-size: 12px; color: #666;">
-            Still having issues? Email us at support@notrace.co.in
+            Questions? Email us at support@notrace.co.in
           </p>
         </div>
       </div>
