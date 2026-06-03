@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('audit_logs')
       .delete()
       .lt('created_at', cutoffDate.toISOString())
