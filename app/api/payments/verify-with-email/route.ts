@@ -3,7 +3,7 @@
 
 import { verifyPayment } from '@/lib/razorpay';
 import { createClient } from '@supabase/supabase-js';
-import { paymentSuccessEmail, paymentFailedEmail } from '@/lib/emails/index';
+import { paymentSuccessEmail } from '@/lib/emails/index';
 import { sendEmail } from '@/lib/emails/send-email';
 
 const supabase = createClient(
