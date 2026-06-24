@@ -1,6 +1,6 @@
 // app/page.tsx
 // Landing page with all Phase 1.4 sections - By Engage Ad
-
+import PricingSection from '@/components/pricing-section';
 import ProblemSection from './components/ProblemSection';
 import SolutionSection from './components/SolutionSection';
 import UseCasesSection from './components/UseCasesSection';
