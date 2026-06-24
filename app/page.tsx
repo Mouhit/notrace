@@ -1,5 +1,5 @@
 // app/page.tsx
-// Landing page with all Phase 1.4 sections - By Engage Ad
+// Landing page with all Phase 1.4 sections + Payment Integration - By Engage Ad
 import PricingSection from '@/components/pricing-section';
 import ProblemSection from './components/ProblemSection';
 import SolutionSection from './components/SolutionSection';
@@ -114,93 +114,8 @@ export default function Home() {
       {/* FAQ Section */}
       <FAQSection />
 
-      {/* Pricing Section */}
-      <section className="py-16 md:py-24 bg-light dark:bg-dark">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-dark dark:text-light">
-            Simple, Honest Pricing
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
-            {/* Free */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-dark dark:text-light">Free</h3>
-              <p className="text-2xl font-bold text-primary mb-4">$0</p>
-              <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400 mb-6">
-                <li>✅ 5 secrets/day</li>
-                <li>✅ 1 day expiry</li>
-                <li>✅ No signup</li>
-                <li>❌ No collections</li>
-              </ul>
-              <a href="/app" className="block text-center bg-gray-200 dark:bg-gray-700 text-dark dark:text-light py-2 rounded-lg">
-                Get Started
-              </a>
-            </div>
-
-            {/* Trial */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-dark dark:text-light">Trial</h3>
-              <p className="text-2xl font-bold text-primary mb-4">$1.99<span className="text-sm">/mo</span></p>
-              <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400 mb-6">
-                <li>✅ 20 secrets/day</li>
-                <li>✅ 15 day expiry</li>
-                <li>✅ 2 collections</li>
-                <li>✅ Email login</li>
-              </ul>
-              <button className="w-full border-2 border-primary text-primary py-2 rounded-lg hover:bg-primary hover:text-dark transition">
-                Try Trial
-              </button>
-            </div>
-
-            {/* Pro */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border-2 border-primary relative">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-primary text-dark px-4 py-1 rounded-full text-sm font-bold">
-                Popular
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-dark dark:text-light">Pro</h3>
-              <p className="text-2xl font-bold text-primary mb-4">$4.99<span className="text-sm">/mo</span></p>
-              <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400 mb-6">
-                <li>✅ 50 secrets/day</li>
-                <li>✅ 30 day expiry</li>
-                <li>✅ 10 collections</li>
-                <li>✅ All features</li>
-              </ul>
-              <button className="w-full bg-primary text-dark py-2 rounded-lg hover:opacity-90 transition font-bold">
-                Upgrade to Pro
-              </button>
-            </div>
-
-            {/* Business */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-dark dark:text-light">Business</h3>
-              <p className="text-2xl font-bold text-primary mb-4">$9.99<span className="text-sm">/mo</span></p>
-              <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400 mb-6">
-                <li>✅ Unlimited secrets</li>
-                <li>✅ 90 day expiry</li>
-                <li>✅ Team (5 users)</li>
-                <li>✅ API access</li>
-              </ul>
-              <button className="w-full border-2 border-primary text-primary py-2 rounded-lg hover:bg-primary hover:text-dark transition">
-                Contact Sales
-              </button>
-            </div>
-
-            {/* Enterprise */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-2 text-dark dark:text-light">Enterprise</h3>
-              <p className="text-2xl font-bold text-primary mb-4">Custom</p>
-              <ul className="text-sm space-y-2 text-gray-600 dark:text-gray-400 mb-6">
-                <li>✅ Everything</li>
-                <li>✅ Unlimited team</li>
-                <li>✅ Custom domain</li>
-                <li>✅ Support</li>
-              </ul>
-              <button className="w-full border-2 border-primary text-primary py-2 rounded-lg hover:bg-primary hover:text-dark transition">
-                Contact Us
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Pricing Section - NOW WITH FULL PAYMENT INTEGRATION */}
+      <PricingSection />
 
       {/* Final CTA */}
       <section className="py-16 md:py-24 bg-primary text-dark">
@@ -249,8 +164,8 @@ export default function Home() {
             <div>
               <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-primary">Privacy</a></li>
-                <li><a href="#" className="hover:text-primary">Terms</a></li>
+                <li><a href="/privacy-policy" className="hover:text-primary">Privacy</a></li>
+                <li><a href="/terms-of-service" className="hover:text-primary">Terms</a></li>
                 <li><a href="#" className="hover:text-primary">Security</a></li>
               </ul>
             </div>
