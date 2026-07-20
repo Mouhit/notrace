@@ -303,3 +303,4 @@ MIT License - see LICENSE file for details
 - Password protection
 - Scheduled messages
 - Sender dashboard
+- First Deployment
